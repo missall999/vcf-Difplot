@@ -1,0 +1,241 @@
+#!/usr/bin/env Rscript
+
+# VCF Variant Position Plotting Script
+# This script reads a tab-delimited file converted from VCF using GATK VariantsToTable
+# and plots variant positions using ggplot2
+
+# Load required libraries
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(optparse)
+})
+
+# Define command-line options
+option_list <- list(
+  make_option(c("-i", "--input"), type="character", default=NULL,
+              help="Input tab-delimited file (required)", metavar="FILE"),
+  make_option(c("-o", "--output"), type="character", default="variant_plot.pdf",
+              help="Output plot file [default=%default]", metavar="FILE"),
+  make_option(c("-b", "--basename"), type="character", default=NULL,
+              help="Baseline sample name", metavar="NAME"),
+  make_option(c("-B", "--basecol"), type="integer", default=NULL,
+              help="Baseline sample column position (1-based)", metavar="INT"),
+  make_option(c("-c", "--copname"), type="character", default=NULL,
+              help="Comparison sample name", metavar="NAME"),
+  make_option(c("-C", "--copcol"), type="integer", default=NULL,
+              help="Comparison sample column position (1-based)", metavar="INT"),
+  make_option(c("-l", "--chrlength"), type="character", default=NULL,
+              help="Chromosome length file (tab-delimited: CHROM LENGTH)", metavar="FILE"),
+  make_option(c("-u", "--unit"), type="numeric", default=1e6,
+              help="Chromosome length unit [default=%default]", metavar="NUM")
+)
+
+opt_parser <- OptionParser(option_list=option_list,
+                          description="\nPlot variant positions from GATK VariantsToTable output\n\nExample usage:\n  Rscript vcf_difplot.R -i input.table -b sample1 -c sample2 -o output.pdf")
+opt <- parse_args(opt_parser)
+
+# Check required arguments
+if (is.null(opt$input)) {
+  print_help(opt_parser)
+  stop("Input file is required (-i/--input)", call.=FALSE)
+}
+
+# Check if input file exists
+if (!file.exists(opt$input)) {
+  stop(paste("Input file does not exist:", opt$input), call.=FALSE)
+}
+
+# Validate baseline sample specification
+if (is.null(opt$basename) && is.null(opt$basecol)) {
+  stop("Either baseline sample name (-b/--basename) or column position (-B/--basecol) must be specified", call.=FALSE)
+}
+
+if (!is.null(opt$basename) && !is.null(opt$basecol)) {
+  warning("Both baseline name and column specified. Using sample name.")
+  opt$basecol <- NULL
+}
+
+# Validate comparison sample specification
+if (is.null(opt$copname) && is.null(opt$copcol)) {
+  stop("Either comparison sample name (-c/--copname) or column position (-C/--copcol) must be specified", call.=FALSE)
+}
+
+if (!is.null(opt$copname) && !is.null(opt$copcol)) {
+  warning("Both comparison name and column specified. Using sample name.")
+  opt$copcol <- NULL
+}
+
+# Read input file
+cat("Reading input file:", opt$input, "\n")
+data <- tryCatch({
+  read.table(opt$input, header=TRUE, sep="\t", stringsAsFactors=FALSE, comment.char="")
+}, error = function(e) {
+  stop(paste("Error reading input file:", e$message), call.=FALSE)
+})
+
+# Check required columns
+required_cols <- c("CHROM", "POS")
+missing_cols <- setdiff(required_cols, colnames(data))
+if (length(missing_cols) > 0) {
+  stop(paste("Missing required columns:", paste(missing_cols, collapse=", ")), call.=FALSE)
+}
+
+# Find GT columns (format: sampleID.GT)
+gt_cols <- grep("\\.GT$", colnames(data), value=TRUE)
+if (length(gt_cols) == 0) {
+  stop("No GT columns found in input file. GT columns should be named as 'sampleID.GT'", call.=FALSE)
+}
+
+cat("Found", length(gt_cols), "samples with GT information\n")
+sample_names <- sub("\\.GT$", "", gt_cols)
+cat("Sample names:", paste(sample_names, collapse=", "), "\n")
+
+# Determine baseline sample column
+if (!is.null(opt$basename)) {
+  base_col <- paste0(opt$basename, ".GT")
+  if (!base_col %in% colnames(data)) {
+    stop(paste("Baseline sample not found:", opt$basename, "\nAvailable samples:", paste(sample_names, collapse=", ")), call.=FALSE)
+  }
+  cat("Using baseline sample:", opt$basename, "\n")
+} else {
+  # Use column position
+  if (opt$basecol < 1 || opt$basecol > length(gt_cols)) {
+    stop(paste("Baseline column position out of range. Must be between 1 and", length(gt_cols)), call.=FALSE)
+  }
+  base_col <- gt_cols[opt$basecol]
+  cat("Using baseline sample from column", opt$basecol, ":", sample_names[opt$basecol], "\n")
+}
+
+# Determine comparison sample column
+if (!is.null(opt$copname)) {
+  comp_col <- paste0(opt$copname, ".GT")
+  if (!comp_col %in% colnames(data)) {
+    stop(paste("Comparison sample not found:", opt$copname, "\nAvailable samples:", paste(sample_names, collapse=", ")), call.=FALSE)
+  }
+  cat("Using comparison sample:", opt$copname, "\n")
+} else {
+  # Use column position
+  if (opt$copcol < 1 || opt$copcol > length(gt_cols)) {
+    stop(paste("Comparison column position out of range. Must be between 1 and", length(gt_cols)), call.=FALSE)
+  }
+  comp_col <- gt_cols[opt$copcol]
+  cat("Using comparison sample from column", opt$copcol, ":", sample_names[opt$copcol], "\n")
+}
+
+# Compare genotypes and mark variants
+cat("Comparing genotypes...\n")
+data$is_variant <- data[[base_col]] != data[[comp_col]]
+
+# Remove rows with missing genotypes
+data <- data[!is.na(data[[base_col]]) & !is.na(data[[comp_col]]), ]
+
+cat("Total positions:", nrow(data), "\n")
+cat("Variant positions:", sum(data$is_variant), "\n")
+cat("Non-variant positions:", sum(!data$is_variant), "\n")
+
+# Get chromosome information
+chromosomes <- unique(data$CHROM)
+cat("Chromosomes found:", paste(chromosomes, collapse=", "), "\n")
+
+# Determine chromosome lengths
+if (!is.null(opt$chrlength)) {
+  # Read chromosome length file
+  if (!file.exists(opt$chrlength)) {
+    stop(paste("Chromosome length file does not exist:", opt$chrlength), call.=FALSE)
+  }
+  
+  cat("Reading chromosome length file:", opt$chrlength, "\n")
+  chr_lengths <- tryCatch({
+    read.table(opt$chrlength, header=FALSE, sep="\t", stringsAsFactors=FALSE, col.names=c("CHROM", "LENGTH"))
+  }, error = function(e) {
+    stop(paste("Error reading chromosome length file:", e$message), call.=FALSE)
+  })
+  
+  # Check if all chromosomes are in the length file
+  missing_chrs <- setdiff(chromosomes, chr_lengths$CHROM)
+  if (length(missing_chrs) > 0) {
+    warning(paste("Some chromosomes not found in length file:", paste(missing_chrs, collapse=", "), 
+                  "\nUsing max position for these chromosomes"))
+  }
+  
+} else {
+  # Use max position from data
+  warning("No chromosome length file provided. Using maximum variant position for each chromosome.")
+  chr_lengths <- aggregate(POS ~ CHROM, data=data, FUN=max)
+  colnames(chr_lengths) <- c("CHROM", "LENGTH")
+}
+
+# Merge chromosome lengths with data
+chr_info <- data.frame(CHROM = chromosomes, stringsAsFactors=FALSE)
+chr_info <- merge(chr_info, chr_lengths, by="CHROM", all.x=TRUE)
+
+# For chromosomes without length information, use max position from data
+for (i in 1:nrow(chr_info)) {
+  if (is.na(chr_info$LENGTH[i])) {
+    chr_info$LENGTH[i] <- max(data$POS[data$CHROM == chr_info$CHROM[i]])
+  }
+}
+
+# Sort chromosomes (numeric sorting for numeric chromosomes)
+chr_info$chr_num <- suppressWarnings(as.numeric(chr_info$CHROM))
+chr_info <- chr_info[order(chr_info$chr_num, chr_info$CHROM, na.last=TRUE), ]
+chr_info$chr_order <- 1:nrow(chr_info)
+
+# Scale lengths by unit
+chr_info$LENGTH_scaled <- chr_info$LENGTH / opt$unit
+
+cat("\nChromosome lengths (scaled by", opt$unit, "):\n")
+print(chr_info[, c("CHROM", "LENGTH_scaled")])
+
+# Prepare data for plotting
+plot_data <- merge(data, chr_info[, c("CHROM", "chr_order", "LENGTH_scaled")], by="CHROM")
+plot_data$POS_scaled <- plot_data$POS / opt$unit
+
+# Filter for variants only
+variant_data <- plot_data[plot_data$is_variant, ]
+
+# Create plot
+cat("\nGenerating plot...\n")
+
+p <- ggplot() +
+  # Draw chromosome rectangles
+  geom_rect(data=chr_info, 
+            aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
+            fill="lightgray", color="black", linewidth=0.3) +
+  # Draw variant positions as vertical segments
+  geom_segment(data=variant_data,
+               aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
+               color="red", linewidth=0.5, alpha=0.6) +
+  scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
+  labs(x=paste0("Position (", opt$unit, " bp)"),
+       y="Chromosome",
+       title="Variant Position Plot",
+       subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.text.y = element_text(size=10))
+
+# Save plot
+cat("Saving plot to:", opt$output, "\n")
+
+# Determine output format based on file extension
+output_ext <- tolower(tools::file_ext(opt$output))
+if (output_ext == "pdf") {
+  pdf(opt$output, width=12, height=max(4, nrow(chr_info) * 0.5))
+} else if (output_ext == "png") {
+  png(opt$output, width=1200, height=max(400, nrow(chr_info) * 50), res=100)
+} else if (output_ext %in% c("jpg", "jpeg")) {
+  jpeg(opt$output, width=1200, height=max(400, nrow(chr_info) * 50), res=100)
+} else {
+  # Default to PDF
+  warning(paste("Unsupported output format:", output_ext, ". Using PDF instead."))
+  opt$output <- sub(paste0("\\.", output_ext, "$"), ".pdf", opt$output)
+  pdf(opt$output, width=12, height=max(4, nrow(chr_info) * 0.5))
+}
+
+print(p)
+dev.off()
+
+cat("\nDone! Plot saved to:", opt$output, "\n")
+cat("Total variants plotted:", nrow(variant_data), "\n")
