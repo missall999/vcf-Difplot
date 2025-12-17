@@ -1,4 +1,4 @@
-# # VCF Variant Position Difference Plot
+# VCF Variant Position Difference Plot
 
 An R script project for plotting variant positions from VCF files, comparing genotypes between two samples.
 

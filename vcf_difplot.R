@@ -201,11 +201,11 @@ p <- ggplot() +
   # Draw chromosome rectangles
   geom_rect(data=chr_info, 
             aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
-            fill="lightgray", color="black", linewidth=0.3) +
+            fill="lightgray", color="black", size=0.3) +
   # Draw variant positions as vertical segments
   geom_segment(data=variant_data,
                aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
-               color="red", linewidth=0.5, alpha=0.6) +
+               color="red", size=0.5, alpha=0.6) +
   scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
   labs(x=paste0("Position (", opt$unit, " bp)"),
        y="Chromosome",
