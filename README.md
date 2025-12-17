@@ -252,7 +252,7 @@ Additionally, the script prints to the console:
   - Comparison_GT: Genotype of comparison sample
 - Chromosome information and processing details
 - 
-[output picture](example/output.png)
+![image](example/output.png)
 ## Features
 
 - **Automatic Sample Detection**: Reads GT column names to identify available samples
