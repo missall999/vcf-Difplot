@@ -206,8 +206,8 @@ is_homozygous <- function(gt) {
 cat("Comparing genotypes...\n")
 
 # Setup parallel processing if threads > 1
-use_parallel <- opt$threads > 1
-if (use_parallel) {
+user_wants_parallel <- opt$threads > 1
+if (user_wants_parallel) {
   cat("Using", opt$threads, "threads for parallel processing\n")
   # Determine number of cores to use (cap at available cores)
   available_cores <- detectCores()
@@ -218,45 +218,62 @@ if (use_parallel) {
 }
 
 # Determine if we should use parallel processing based on data size
-use_parallel <- use_parallel && nrow(data) > PARALLEL_THRESHOLD
+should_use_parallel <- user_wants_parallel && nrow(data) > PARALLEL_THRESHOLD
 
 # Normalize genotypes for comparison
-if (use_parallel) {
+if (should_use_parallel) {
   # Use parallel processing for large datasets
   cat("Dataset has", nrow(data), "positions (>", PARALLEL_THRESHOLD, "), using parallel processing\n")
-  cl <- makeCluster(num_cores)
-  # Export functions to cluster
-  clusterExport(cl, c("normalize_genotype", "parse_genotype", "is_homozygous"), envir=environment())
-  data$base_gt_norm <- parSapply(cl, data[[base_col]], normalize_genotype)
-  data$comp_gt_norm <- parSapply(cl, data[[comp_col]], normalize_genotype)
   
-  # Create initial filter: exclude positions with missing data (./.)
-  data$keep <- !is.na(data$base_gt_norm) & !is.na(data$comp_gt_norm)
-  
-  cat("Positions after removing missing data (./.): ", sum(data$keep), "\n")
-  
-  # Apply baseline homozygosity check if requested
-  if (opt$baseHetcheck) {
-    cat("Applying baseline homozygosity check...\n")
-    base_homo <- parSapply(cl, data[[base_col]], is_homozygous)
-    data$keep <- data$keep & !is.na(base_homo) & base_homo
-    cat("Positions after baseline homozygosity filter: ", sum(data$keep), "\n")
-  }
-  
-  # Apply comparison homozygosity check if requested
-  if (opt$copHetcheck) {
-    cat("Applying comparison homozygosity check...\n")
-    comp_homo <- parSapply(cl, data[[comp_col]], is_homozygous)
-    data$keep <- data$keep & !is.na(comp_homo) & comp_homo
-    cat("Positions after comparison homozygosity filter: ", sum(data$keep), "\n")
-  }
-  
-  stopCluster(cl)
-} else {
+  tryCatch({
+    cl <- makeCluster(num_cores)
+    # Export functions to cluster
+    clusterExport(cl, c("normalize_genotype", "parse_genotype", "is_homozygous"), envir=environment())
+    data$base_gt_norm <- parSapply(cl, data[[base_col]], normalize_genotype)
+    data$comp_gt_norm <- parSapply(cl, data[[comp_col]], normalize_genotype)
+    
+    # Create initial filter: exclude positions with missing data (./.)
+    data$keep <- !is.na(data$base_gt_norm) & !is.na(data$comp_gt_norm)
+    
+    cat("Positions after removing missing data (./.): ", sum(data$keep), "\n")
+    
+    # Apply baseline homozygosity check if requested
+    if (opt$baseHetcheck) {
+      cat("Applying baseline homozygosity check...\n")
+      base_homo <- parSapply(cl, data[[base_col]], is_homozygous)
+      data$keep <- data$keep & !is.na(base_homo) & base_homo
+      cat("Positions after baseline homozygosity filter: ", sum(data$keep), "\n")
+    }
+    
+    # Apply comparison homozygosity check if requested
+    if (opt$copHetcheck) {
+      cat("Applying comparison homozygosity check...\n")
+      comp_homo <- parSapply(cl, data[[comp_col]], is_homozygous)
+      data$keep <- data$keep & !is.na(comp_homo) & comp_homo
+      cat("Positions after comparison homozygosity filter: ", sum(data$keep), "\n")
+    }
+    
+    stopCluster(cl)
+  }, error = function(e) {
+    cat("Error in parallel processing:", e$message, "\n")
+    cat("Falling back to sequential processing\n")
+    # Ensure cluster is stopped if it was created
+    if (exists("cl")) {
+      try(stopCluster(cl), silent=TRUE)
+    }
+    # Fall back to sequential processing
+    should_use_parallel <<- FALSE
+  })
+}
+
+if (!should_use_parallel) {
   # Use sequential processing
-  if (use_parallel) {
-    cat("Dataset has", nrow(data), "positions (<", PARALLEL_THRESHOLD, "), using sequential processing\n")
+  if (user_wants_parallel && nrow(data) <= PARALLEL_THRESHOLD) {
+    cat("Dataset has", nrow(data), "positions (<=", PARALLEL_THRESHOLD, "), using sequential processing\n")
+  } else if (!user_wants_parallel) {
+    cat("Using sequential processing (single-threaded mode)\n")
   }
+  
   data$base_gt_norm <- sapply(data[[base_col]], normalize_genotype)
   data$comp_gt_norm <- sapply(data[[comp_col]], normalize_genotype)
   
