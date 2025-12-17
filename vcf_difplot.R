@@ -13,6 +13,7 @@ suppressPackageStartupMessages({
 
 # Constants
 MAX_DISPLAY_ROWS <- 20  # Maximum number of positions to display in console output
+PARALLEL_THRESHOLD <- 1000  # Minimum number of positions to enable parallel processing
 
 # Define command-line options
 option_list <- list(
@@ -209,15 +210,20 @@ use_parallel <- opt$threads > 1
 if (use_parallel) {
   cat("Using", opt$threads, "threads for parallel processing\n")
   # Determine number of cores to use (cap at available cores)
-  num_cores <- min(opt$threads, detectCores())
-  cat("Detected", detectCores(), "cores, using", num_cores, "cores\n")
+  available_cores <- detectCores()
+  num_cores <- min(opt$threads, available_cores)
+  cat("Detected", available_cores, "cores, using", num_cores, "cores\n")
 } else {
   num_cores <- 1
 }
 
+# Determine if we should use parallel processing based on data size
+use_parallel <- use_parallel && nrow(data) > PARALLEL_THRESHOLD
+
 # Normalize genotypes for comparison
-if (use_parallel && nrow(data) > 1000) {
+if (use_parallel) {
   # Use parallel processing for large datasets
+  cat("Dataset has", nrow(data), "positions (>", PARALLEL_THRESHOLD, "), using parallel processing\n")
   cl <- makeCluster(num_cores)
   # Export functions to cluster
   clusterExport(cl, c("normalize_genotype", "parse_genotype", "is_homozygous"), envir=environment())
@@ -248,6 +254,9 @@ if (use_parallel && nrow(data) > 1000) {
   stopCluster(cl)
 } else {
   # Use sequential processing
+  if (use_parallel) {
+    cat("Dataset has", nrow(data), "positions (<", PARALLEL_THRESHOLD, "), using sequential processing\n")
+  }
   data$base_gt_norm <- sapply(data[[base_col]], normalize_genotype)
   data$comp_gt_norm <- sapply(data[[comp_col]], normalize_genotype)
   
