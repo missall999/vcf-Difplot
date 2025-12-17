@@ -243,19 +243,14 @@ if (nrow(data) > 0) {
   n_display <- min(MAX_DISPLAY_ROWS, nrow(data))
   
   # Create display data frame with desired column names
-  display_subset <- data.frame(
-    CHROM = data$CHROM[1:n_display],
-    POS = data$POS[1:n_display],
-    Baseline_GT = data[[base_col]][1:n_display],
-    Comparison_GT = data[[comp_col]][1:n_display],
-    stringsAsFactors = FALSE
-  )
+  display_subset <- head(data[, c("CHROM", "POS", base_col, comp_col)], n_display)
+  colnames(display_subset) <- c("CHROM", "POS", "Baseline_GT", "Comparison_GT")
   
   # Print as a formatted table
   print(display_subset, row.names=FALSE)
   
   if (nrow(data) > MAX_DISPLAY_ROWS) {
-    cat(paste0("\n... (showing ", MAX_DISPLAY_ROWS, " of ", nrow(data), " total positions)\n"))
+    cat("\n... (showing", MAX_DISPLAY_ROWS, "of", nrow(data), "total positions)\n")
   }
 } else {
   cat("No positions meet the filtering criteria.\n")
