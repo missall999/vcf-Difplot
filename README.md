@@ -74,6 +74,18 @@ Rscript vcf_difplot.R [options]
 - `-l, --chrlength FILE`: Chromosome length file (tab-delimited: CHROM LENGTH)
   - If not provided, uses maximum variant position (warning will be issued)
 - `-u, --unit NUM`: Chromosome length unit (default: 1e6 for Mb)
+- `--baseHetcheck`: Check if baseline sample is homozygous; ignore heterozygous positions
+  - Only positions where baseline is homozygous (e.g., A/A, G|G) will be included
+- `--copHetcheck`: Check if comparison sample is homozygous; ignore heterozygous positions
+  - Only positions where comparison is homozygous (e.g., A/A, G|G) will be included
+
+### Genotype Handling
+
+The script properly handles GATK VariantsToTable genotype formats:
+- Supports both `/` and `|` as separators (phased and unphased)
+- Treats `A/T` and `T|A` as equivalent (normalizes for comparison)
+- Automatically filters out positions with missing data (`./.`)
+- Can optionally filter for homozygous positions only
 
 ## Examples
 
@@ -110,6 +122,33 @@ Rscript vcf_difplot.R \
 ```
 
 This example uses kilobase (kb) units instead of the default megabase (Mb) units.
+
+### Example 4: Filter for Homozygous Baseline Positions
+
+```bash
+Rscript vcf_difplot.R \
+  -i variants.table \
+  -b sample1 \
+  -c sample2 \
+  --baseHetcheck \
+  -o homozygous_baseline.pdf
+```
+
+This example only includes positions where the baseline sample is homozygous (e.g., A/A, G|G).
+
+### Example 5: Filter for Both Homozygous Positions
+
+```bash
+Rscript vcf_difplot.R \
+  -i variants.table \
+  -b sample1 \
+  -c sample2 \
+  --baseHetcheck \
+  --copHetcheck \
+  -o both_homozygous.pdf
+```
+
+This example only includes positions where both samples are homozygous.
 
 ### Chromosome Length File Format
 

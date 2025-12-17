@@ -27,7 +27,11 @@ option_list <- list(
   make_option(c("-l", "--chrlength"), type="character", default=NULL,
               help="Chromosome length file (tab-delimited: CHROM LENGTH)", metavar="FILE"),
   make_option(c("-u", "--unit"), type="numeric", default=1e6,
-              help="Chromosome length unit [default=%default]", metavar="NUM")
+              help="Chromosome length unit [default=%default]", metavar="NUM"),
+  make_option(c("--baseHetcheck"), action="store_true", default=FALSE,
+              help="Check if baseline sample is homozygous (e.g., A/A, G|G); ignore heterozygous positions"),
+  make_option(c("--copHetcheck"), action="store_true", default=FALSE,
+              help="Check if comparison sample is homozygous (e.g., A/A, G|G); ignore heterozygous positions")
 )
 
 opt_parser <- OptionParser(option_list=option_list,
@@ -122,12 +126,90 @@ if (!is.null(opt$copname)) {
   cat("Using comparison sample from column", opt$copcol, ":", sample_names[opt$copcol], "\n")
 }
 
+# Helper functions for genotype processing
+
+# Normalize genotype: treat / and | as equivalent separators
+# Input: genotype string like "A/T", "C|G", "./.", etc.
+# Output: sorted alleles separated by "/" (e.g., "A/T" -> "A/T", "T|A" -> "A/T")
+normalize_genotype <- function(gt) {
+  if (is.na(gt) || gt == "" || gt == "./.") {
+    return(NA)
+  }
+  
+  # Replace | with / for consistent processing
+  gt <- gsub("\\|", "/", gt)
+  
+  # Split by /
+  alleles <- strsplit(gt, "/")[[1]]
+  
+  # Check for missing data
+  if (any(alleles == ".")) {
+    return(NA)
+  }
+  
+  # Sort alleles to make "A/T" and "T/A" equivalent
+  alleles_sorted <- sort(alleles)
+  
+  # Return normalized genotype
+  return(paste(alleles_sorted, collapse="/"))
+}
+
+# Check if genotype is homozygous
+# Input: genotype string like "A/A", "G|G", "A/T"
+# Output: TRUE if homozygous, FALSE if heterozygous, NA if missing
+is_homozygous <- function(gt) {
+  if (is.na(gt) || gt == "" || gt == "./.") {
+    return(NA)
+  }
+  
+  # Replace | with / for consistent processing
+  gt <- gsub("\\|", "/", gt)
+  
+  # Split by /
+  alleles <- strsplit(gt, "/")[[1]]
+  
+  # Check for missing data
+  if (any(alleles == ".")) {
+    return(NA)
+  }
+  
+  # Check if all alleles are the same
+  return(length(unique(alleles)) == 1)
+}
+
 # Compare genotypes and mark variants
 cat("Comparing genotypes...\n")
-data$is_variant <- data[[base_col]] != data[[comp_col]]
 
-# Remove rows with missing genotypes
-data <- data[!is.na(data[[base_col]]) & !is.na(data[[comp_col]]), ]
+# Normalize genotypes for comparison
+data$base_gt_norm <- sapply(data[[base_col]], normalize_genotype)
+data$comp_gt_norm <- sapply(data[[comp_col]], normalize_genotype)
+
+# Create initial filter: exclude positions with missing data (./.)
+data$keep <- !is.na(data$base_gt_norm) & !is.na(data$comp_gt_norm)
+
+cat("Positions after removing missing data (./.): ", sum(data$keep), "\n")
+
+# Apply baseline homozygosity check if requested
+if (opt$baseHetcheck) {
+  cat("Applying baseline homozygosity check...\n")
+  base_homo <- sapply(data[[base_col]], is_homozygous)
+  data$keep <- data$keep & !is.na(base_homo) & base_homo
+  cat("Positions after baseline homozygosity filter: ", sum(data$keep), "\n")
+}
+
+# Apply comparison homozygosity check if requested
+if (opt$copHetcheck) {
+  cat("Applying comparison homozygosity check...\n")
+  comp_homo <- sapply(data[[comp_col]], is_homozygous)
+  data$keep <- data$keep & !is.na(comp_homo) & comp_homo
+  cat("Positions after comparison homozygosity filter: ", sum(data$keep), "\n")
+}
+
+# Filter data based on all criteria
+data <- data[data$keep, ]
+
+# Compare normalized genotypes
+data$is_variant <- data$base_gt_norm != data$comp_gt_norm
 
 cat("Total positions:", nrow(data), "\n")
 cat("Variant positions:", sum(data$is_variant), "\n")

@@ -10,10 +10,14 @@ A sample tab-delimited file that simulates the output from GATK VariantsToTable.
 
 - **CHROM**: Chromosome identifier (chr1-chr5)
 - **POS**: Position on the chromosome
-- **sample1.GT**: Genotype for sample1
-- **sample2.GT**: Genotype for sample2
+- **sample1.GT**: Genotype for sample1 (in GATK format: A/T, C|G, ./., etc.)
+- **sample2.GT**: Genotype for sample2 (in GATK format: A/T, C|G, ./., etc.)
 
-The data includes 15 variant positions across 5 chromosomes with varying genotypes.
+The data includes 17 positions across 5 chromosomes with varying genotypes, including:
+- Homozygous genotypes (e.g., A/A, G|G)
+- Heterozygous genotypes (e.g., A/T, C|G)
+- Missing data (./.)
+- Both phased (|) and unphased (/) separators
 
 ### chr_lengths.txt
 
@@ -100,6 +104,35 @@ Rscript ../vcf_difplot.R \
 
 This displays positions in kilobases (kb) instead of megabases (Mb).
 
+### Example 6: Filter for Homozygous Baseline
+
+```bash
+Rscript ../vcf_difplot.R \
+    -i example_data.table \
+    -b sample1 \
+    -c sample2 \
+    -l chr_lengths.txt \
+    --baseHetcheck \
+    -o plot_homozygous_base.pdf
+```
+
+This includes only positions where sample1 (baseline) is homozygous.
+
+### Example 7: Filter for Both Homozygous
+
+```bash
+Rscript ../vcf_difplot.R \
+    -i example_data.table \
+    -b sample1 \
+    -c sample2 \
+    -l chr_lengths.txt \
+    --baseHetcheck \
+    --copHetcheck \
+    -o plot_both_homozygous.pdf
+```
+
+This includes only positions where both samples are homozygous.
+
 ## Expected Output
 
 The generated plot will show:
@@ -109,13 +142,21 @@ The generated plot will show:
 - Y-axis showing chromosome names
 
 For the example data, you should see:
-- chr1: 3 variants (at positions 100kb, 500kb, 1000kb)
-- chr2: 2 variants (at positions 150kb, 600kb)
-- chr3: 2 variants (at positions 200kb, 800kb)
-- chr4: 2 variants (at positions 100kb, 500kb)
-- chr5: 1 variant (at position 250kb)
 
-Total: 10 variant positions out of 15 total positions in the file.
+**Without filters (basic run):**
+- Total positions: 15 (after removing 2 positions with ./.)
+- Variant positions vary based on genotype differences
+- Positions with ./. in either column are automatically excluded
+
+**With --baseHetcheck:**
+- Only positions where sample1 is homozygous (A/A, G/G, T|T, etc.)
+- Excludes heterozygous positions (A/T, C/G, etc.)
+
+**With both --baseHetcheck and --copHetcheck:**
+- Only positions where both samples are homozygous
+- Smallest subset of positions
+
+Note: The script normalizes genotypes, so A/T and T|A are treated as equivalent.
 
 ## Creating Your Own Test Data
 
