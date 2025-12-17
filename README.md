@@ -97,7 +97,7 @@ Rscript vcf_difplot.R \
   -o comparison.pdf
 ```
 
-### Example 3: With Chromosome Length File
+### Example 3: With Chromosome Length File and Custom Unit (kb)
 
 ```bash
 Rscript vcf_difplot.R \
@@ -105,9 +105,11 @@ Rscript vcf_difplot.R \
   -b sample1 \
   -c sample2 \
   -l chr_lengths.txt \
-  -u 1000000 \
+  -u 1000 \
   -o comparison.pdf
 ```
+
+This example uses kilobase (kb) units instead of the default megabase (Mb) units.
 
 ### Chromosome Length File Format
 

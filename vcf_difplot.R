@@ -197,6 +197,17 @@ variant_data <- plot_data[plot_data$is_variant, ]
 # Create plot
 cat("\nGenerating plot...\n")
 
+# Format unit label for better readability
+unit_label <- if (opt$unit == 1e6) {
+  "Mb"
+} else if (opt$unit == 1e3) {
+  "kb"
+} else if (opt$unit == 1) {
+  "bp"
+} else {
+  paste0(format(opt$unit, scientific = FALSE), " bp")
+}
+
 # Determine the correct parameter name for line width based on ggplot2 version
 # ggplot2 >= 3.4.0 uses linewidth, older versions use size
 ggplot2_version <- packageVersion("ggplot2")
@@ -214,7 +225,7 @@ if (use_linewidth) {
                  aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
                  color="red", linewidth=0.5, alpha=0.6) +
     scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
-    labs(x=paste0("Position (", opt$unit, " bp)"),
+    labs(x=paste0("Position (", unit_label, ")"),
          y="Chromosome",
          title="Variant Position Plot",
          subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
@@ -233,7 +244,7 @@ if (use_linewidth) {
                  aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
                  color="red", size=0.5, alpha=0.6) +
     scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
-    labs(x=paste0("Position (", opt$unit, " bp)"),
+    labs(x=paste0("Position (", unit_label, ")"),
          y="Chromosome",
          title="Variant Position Plot",
          subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
