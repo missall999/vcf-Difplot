@@ -251,9 +251,8 @@ Additionally, the script prints to the console:
   - Baseline_GT: Genotype of baseline sample
   - Comparison_GT: Genotype of comparison sample
 - Chromosome information and processing details
-“`html
-[点击此处下载PDF文件](https://github.com/missall999/vcf-Difplot/blob/main/example/output.pdf)
-“`
+- 
+[点击此处下载PDF文件](example/output.pdf)
 ## Features
 
 - **Automatic Sample Detection**: Reads GT column names to identify available samples
