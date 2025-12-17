@@ -8,6 +8,7 @@
 suppressPackageStartupMessages({
   library(ggplot2)
   library(optparse)
+  library(parallel)
 })
 
 # Constants
@@ -42,7 +43,9 @@ option_list <- list(
   make_option(c("--chrBorderColor"), type="character", default="black",
               help="Color for chromosome borders [default=%default]", metavar="COLOR"),
   make_option(c("--chrBorderSize"), type="numeric", default=0.3,
-              help="Thickness of chromosome borders [default=%default]", metavar="NUM")
+              help="Thickness of chromosome borders [default=%default]", metavar="NUM"),
+  make_option(c("-t", "--threads"), type="integer", default=1,
+              help="Number of threads for parallel processing by chromosome [default=%default]", metavar="INT")
 )
 
 opt_parser <- OptionParser(option_list=option_list,
@@ -201,29 +204,73 @@ is_homozygous <- function(gt) {
 # Compare genotypes and mark variants
 cat("Comparing genotypes...\n")
 
-# Normalize genotypes for comparison
-data$base_gt_norm <- sapply(data[[base_col]], normalize_genotype)
-data$comp_gt_norm <- sapply(data[[comp_col]], normalize_genotype)
-
-# Create initial filter: exclude positions with missing data (./.)
-data$keep <- !is.na(data$base_gt_norm) & !is.na(data$comp_gt_norm)
-
-cat("Positions after removing missing data (./.): ", sum(data$keep), "\n")
-
-# Apply baseline homozygosity check if requested
-if (opt$baseHetcheck) {
-  cat("Applying baseline homozygosity check...\n")
-  base_homo <- sapply(data[[base_col]], is_homozygous)
-  data$keep <- data$keep & !is.na(base_homo) & base_homo
-  cat("Positions after baseline homozygosity filter: ", sum(data$keep), "\n")
+# Setup parallel processing if threads > 1
+use_parallel <- opt$threads > 1
+if (use_parallel) {
+  cat("Using", opt$threads, "threads for parallel processing\n")
+  # Determine number of cores to use (cap at available cores)
+  num_cores <- min(opt$threads, detectCores())
+  cat("Detected", detectCores(), "cores, using", num_cores, "cores\n")
+} else {
+  num_cores <- 1
 }
 
-# Apply comparison homozygosity check if requested
-if (opt$copHetcheck) {
-  cat("Applying comparison homozygosity check...\n")
-  comp_homo <- sapply(data[[comp_col]], is_homozygous)
-  data$keep <- data$keep & !is.na(comp_homo) & comp_homo
-  cat("Positions after comparison homozygosity filter: ", sum(data$keep), "\n")
+# Normalize genotypes for comparison
+if (use_parallel && nrow(data) > 1000) {
+  # Use parallel processing for large datasets
+  cl <- makeCluster(num_cores)
+  # Export functions to cluster
+  clusterExport(cl, c("normalize_genotype", "parse_genotype", "is_homozygous"), envir=environment())
+  data$base_gt_norm <- parSapply(cl, data[[base_col]], normalize_genotype)
+  data$comp_gt_norm <- parSapply(cl, data[[comp_col]], normalize_genotype)
+  
+  # Create initial filter: exclude positions with missing data (./.)
+  data$keep <- !is.na(data$base_gt_norm) & !is.na(data$comp_gt_norm)
+  
+  cat("Positions after removing missing data (./.): ", sum(data$keep), "\n")
+  
+  # Apply baseline homozygosity check if requested
+  if (opt$baseHetcheck) {
+    cat("Applying baseline homozygosity check...\n")
+    base_homo <- parSapply(cl, data[[base_col]], is_homozygous)
+    data$keep <- data$keep & !is.na(base_homo) & base_homo
+    cat("Positions after baseline homozygosity filter: ", sum(data$keep), "\n")
+  }
+  
+  # Apply comparison homozygosity check if requested
+  if (opt$copHetcheck) {
+    cat("Applying comparison homozygosity check...\n")
+    comp_homo <- parSapply(cl, data[[comp_col]], is_homozygous)
+    data$keep <- data$keep & !is.na(comp_homo) & comp_homo
+    cat("Positions after comparison homozygosity filter: ", sum(data$keep), "\n")
+  }
+  
+  stopCluster(cl)
+} else {
+  # Use sequential processing
+  data$base_gt_norm <- sapply(data[[base_col]], normalize_genotype)
+  data$comp_gt_norm <- sapply(data[[comp_col]], normalize_genotype)
+  
+  # Create initial filter: exclude positions with missing data (./.)
+  data$keep <- !is.na(data$base_gt_norm) & !is.na(data$comp_gt_norm)
+  
+  cat("Positions after removing missing data (./.): ", sum(data$keep), "\n")
+  
+  # Apply baseline homozygosity check if requested
+  if (opt$baseHetcheck) {
+    cat("Applying baseline homozygosity check...\n")
+    base_homo <- sapply(data[[base_col]], is_homozygous)
+    data$keep <- data$keep & !is.na(base_homo) & base_homo
+    cat("Positions after baseline homozygosity filter: ", sum(data$keep), "\n")
+  }
+  
+  # Apply comparison homozygosity check if requested
+  if (opt$copHetcheck) {
+    cat("Applying comparison homozygosity check...\n")
+    comp_homo <- sapply(data[[comp_col]], is_homozygous)
+    data$keep <- data$keep & !is.na(comp_homo) & comp_homo
+    cat("Positions after comparison homozygosity filter: ", sum(data$keep), "\n")
+  }
 }
 
 # Filter data based on all criteria
@@ -338,8 +385,10 @@ for (i in 1:nrow(chr_info)) {
   }
 }
 
-# Sort chromosomes (numeric sorting for numeric chromosomes)
-chr_info$chr_num <- suppressWarnings(as.numeric(chr_info$CHROM))
+# Sort chromosomes (extract numeric part for proper ordering)
+# Extract numeric part from chromosome names (e.g., "Chr1" -> 1, "chr10" -> 10)
+chr_info$chr_num <- suppressWarnings(as.numeric(gsub("[^0-9]", "", chr_info$CHROM)))
+# For chromosomes without numbers, use alphabetical ordering
 chr_info <- chr_info[order(chr_info$chr_num, chr_info$CHROM, na.last=TRUE), ]
 chr_info$chr_order <- 1:nrow(chr_info)
 

@@ -75,6 +75,9 @@ Rscript vcf_difplot.R [options]
   - If not provided, uses maximum variant position (warning will be issued)
   - Separator is automatically detected (supports tab, comma, semicolon, or whitespace)
 - `-u, --unit NUM`: Chromosome length unit (default: 1e6 for Mb)
+- `-t, --threads INT`: Number of threads for parallel processing by chromosome (default: 1)
+  - Use `-t 12` to enable parallel processing with 12 threads for faster execution
+  - Recommended for large datasets with many positions
 - `--baseHetcheck`: Check if baseline sample is homozygous; ignore heterozygous positions
   - Only positions where baseline is homozygous (e.g., A/A, G|G) will be included
 - `--copHetcheck`: Check if comparison sample is homozygous; ignore heterozygous positions
@@ -96,6 +99,7 @@ The script properly handles GATK VariantsToTable genotype formats:
 - Treats `A/T` and `T|A` as equivalent (normalizes for comparison)
 - Automatically filters out positions with missing data (`./.`)
 - Can optionally filter for homozygous positions only
+- **Smart chromosome sorting**: Chromosomes are sorted in natural numerical order (Chr1, Chr2, ..., Chr10, Chr11) instead of alphabetical order
 
 ## Examples
 
@@ -189,6 +193,19 @@ Rscript vcf_difplot.R \
 ```
 
 This example uses a hex color code for the variant segments.
+
+### Example 8: Using Parallel Processing for Large Datasets
+
+```bash
+Rscript vcf_difplot.R \
+  -i large_variants.table \
+  -b sample1 \
+  -c sample2 \
+  -t 12 \
+  -o fast_comparison.pdf
+```
+
+This example uses 12 threads for parallel processing, significantly speeding up analysis of large datasets.
 
 ### Chromosome Length File Format
 
