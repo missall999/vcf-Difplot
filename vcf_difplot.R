@@ -197,24 +197,51 @@ variant_data <- plot_data[plot_data$is_variant, ]
 # Create plot
 cat("\nGenerating plot...\n")
 
-p <- ggplot() +
-  # Draw chromosome rectangles
-  geom_rect(data=chr_info, 
-            aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
-            fill="lightgray", color="black", size=0.3) +
-  # Draw variant positions as vertical segments
-  geom_segment(data=variant_data,
-               aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
-               color="red", size=0.5, alpha=0.6) +
-  scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
-  labs(x=paste0("Position (", opt$unit, " bp)"),
-       y="Chromosome",
-       title="Variant Position Plot",
-       subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank(),
-        panel.grid.major.y = element_blank(),
-        axis.text.y = element_text(size=10))
+# Determine the correct parameter name for line width based on ggplot2 version
+# ggplot2 >= 3.4.0 uses linewidth, older versions use size
+ggplot2_version <- packageVersion("ggplot2")
+use_linewidth <- ggplot2_version >= "3.4.0"
+
+# Build the plot with version-appropriate parameters
+if (use_linewidth) {
+  p <- ggplot() +
+    # Draw chromosome rectangles
+    geom_rect(data=chr_info, 
+              aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
+              fill="lightgray", color="black", linewidth=0.3) +
+    # Draw variant positions as vertical segments
+    geom_segment(data=variant_data,
+                 aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
+                 color="red", linewidth=0.5, alpha=0.6) +
+    scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
+    labs(x=paste0("Position (", opt$unit, " bp)"),
+         y="Chromosome",
+         title="Variant Position Plot",
+         subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major.y = element_blank(),
+          axis.text.y = element_text(size=10))
+} else {
+  p <- ggplot() +
+    # Draw chromosome rectangles
+    geom_rect(data=chr_info, 
+              aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
+              fill="lightgray", color="black", size=0.3) +
+    # Draw variant positions as vertical segments
+    geom_segment(data=variant_data,
+                 aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
+                 color="red", size=0.5, alpha=0.6) +
+    scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
+    labs(x=paste0("Position (", opt$unit, " bp)"),
+         y="Chromosome",
+         title="Variant Position Plot",
+         subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major.y = element_blank(),
+          axis.text.y = element_text(size=10))
+}
 
 # Save plot
 cat("Saving plot to:", opt$output, "\n")
