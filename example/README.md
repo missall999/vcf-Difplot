@@ -29,6 +29,14 @@ chromosome_name<TAB>length_in_bp
 
 These lengths are based on the GRCh38 human reference genome.
 
+### chr_lengths_comma.txt
+
+The same chromosome length data but comma-delimited, to demonstrate automatic separator detection:
+
+```
+chromosome_name,length_in_bp
+```
+
 ## Running Examples
 
 ### Example 1: Basic Plot Using Sample Names
@@ -132,6 +140,36 @@ Rscript ../vcf_difplot.R \
 ```
 
 This includes only positions where both samples are homozygous.
+
+### Example 8: Custom Colors and Line Thickness
+
+```bash
+Rscript ../vcf_difplot.R \
+    -i example_data.table \
+    -b sample1 \
+    -c sample2 \
+    -l chr_lengths.txt \
+    --segmentColor blue \
+    --segmentSize 1.0 \
+    --chrBorderColor darkgray \
+    --chrBorderSize 0.5 \
+    -o plot_custom_style.pdf
+```
+
+This demonstrates custom visualization with blue variant segments and dark gray borders.
+
+### Example 9: Using Comma-Delimited Chromosome Length File
+
+```bash
+Rscript ../vcf_difplot.R \
+    -i example_data.table \
+    -b sample1 \
+    -c sample2 \
+    -l chr_lengths_comma.txt \
+    -o plot_with_comma_sep.pdf
+```
+
+This demonstrates automatic separator detection using the comma-delimited chromosome length file.
 
 ## Expected Output
 

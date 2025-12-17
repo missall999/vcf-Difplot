@@ -71,13 +71,23 @@ Rscript vcf_difplot.R [options]
 ### Optional Arguments
 
 - `-o, --output FILE`: Output plot file (default: `variant_plot.pdf`)
-- `-l, --chrlength FILE`: Chromosome length file (tab-delimited: CHROM LENGTH)
+- `-l, --chrlength FILE`: Chromosome length file (CHROM LENGTH)
   - If not provided, uses maximum variant position (warning will be issued)
+  - Separator is automatically detected (supports tab, comma, semicolon, or whitespace)
 - `-u, --unit NUM`: Chromosome length unit (default: 1e6 for Mb)
 - `--baseHetcheck`: Check if baseline sample is homozygous; ignore heterozygous positions
   - Only positions where baseline is homozygous (e.g., A/A, G|G) will be included
 - `--copHetcheck`: Check if comparison sample is homozygous; ignore heterozygous positions
   - Only positions where comparison is homozygous (e.g., A/A, G|G) will be included
+
+### Visualization Customization
+
+- `--segmentColor COLOR`: Color for variant position segments (default: `red`)
+  - Accepts any valid R color name or hex code (e.g., "blue", "#FF5733")
+- `--segmentSize NUM`: Thickness of variant position segments (default: `0.5`)
+- `--chrBorderColor COLOR`: Color for chromosome borders (default: `black`)
+  - Accepts any valid R color name or hex code
+- `--chrBorderSize NUM`: Thickness of chromosome borders (default: `0.3`)
 
 ### Genotype Handling
 
@@ -150,10 +160,41 @@ Rscript vcf_difplot.R \
 
 This example only includes positions where both samples are homozygous.
 
+### Example 6: Custom Colors and Line Thickness
+
+```bash
+Rscript vcf_difplot.R \
+  -i variants.table \
+  -b sample1 \
+  -c sample2 \
+  --segmentColor blue \
+  --segmentSize 1.0 \
+  --chrBorderColor darkgray \
+  --chrBorderSize 0.5 \
+  -o custom_colors.pdf
+```
+
+This example customizes the appearance with blue variant segments (thicker) and dark gray chromosome borders.
+
+### Example 7: Using Hex Color Codes
+
+```bash
+Rscript vcf_difplot.R \
+  -i variants.table \
+  -b sample1 \
+  -c sample2 \
+  --segmentColor "#FF5733" \
+  --segmentSize 0.8 \
+  -o hex_colors.pdf
+```
+
+This example uses a hex color code for the variant segments.
+
 ### Chromosome Length File Format
 
-The chromosome length file should be tab-delimited with two columns (no header):
+The chromosome length file should have two columns (no header). The separator is automatically detected (tab, comma, semicolon, or whitespace):
 
+**Tab-delimited:**
 ```
 chr1	248956422
 chr2	242193529
@@ -161,11 +202,27 @@ chr3	198295559
 ...
 ```
 
+**Comma-delimited:**
+```
+chr1,248956422
+chr2,242193529
+chr3,198295559
+```
+
+**Space-delimited:**
+```
+chr1 248956422
+chr2 242193529
+chr3 198295559
+```
+
+The script will automatically detect and use the appropriate separator.
+
 ## Output
 
 The script generates a plot where:
-- Each chromosome is represented as a horizontal rectangle (light gray)
-- Variant positions (where genotypes differ) are shown as red vertical lines
+- Each chromosome is represented as a horizontal rectangle (light gray by default)
+- Variant positions (where genotypes differ) are shown as vertical lines (red by default)
 - The x-axis shows position (scaled by the specified unit)
 - The y-axis lists chromosomes
 

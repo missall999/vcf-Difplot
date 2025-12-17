@@ -31,7 +31,15 @@ option_list <- list(
   make_option(c("--baseHetcheck"), action="store_true", default=FALSE,
               help="Check if baseline sample is homozygous (e.g., A/A, G|G); ignore heterozygous positions"),
   make_option(c("--copHetcheck"), action="store_true", default=FALSE,
-              help="Check if comparison sample is homozygous (e.g., A/A, G|G); ignore heterozygous positions")
+              help="Check if comparison sample is homozygous (e.g., A/A, G|G); ignore heterozygous positions"),
+  make_option(c("--segmentColor"), type="character", default="red",
+              help="Color for variant position segments [default=%default]", metavar="COLOR"),
+  make_option(c("--segmentSize"), type="numeric", default=0.5,
+              help="Thickness of variant position segments [default=%default]", metavar="NUM"),
+  make_option(c("--chrBorderColor"), type="character", default="black",
+              help="Color for chromosome borders [default=%default]", metavar="COLOR"),
+  make_option(c("--chrBorderSize"), type="numeric", default=0.3,
+              help="Thickness of chromosome borders [default=%default]", metavar="NUM")
 )
 
 opt_parser <- OptionParser(option_list=option_list,
@@ -237,8 +245,31 @@ if (!is.null(opt$chrlength)) {
   }
   
   cat("Reading chromosome length file:", opt$chrlength, "\n")
+  
+  # Intelligent separator detection
+  # Read first line to detect separator
+  first_line <- readLines(opt$chrlength, n=1, warn=FALSE)
+  
+  # Detect separator: try tab, comma, space, semicolon
+  detected_sep <- "\t"  # default to tab
+  if (grepl("\t", first_line)) {
+    detected_sep <- "\t"
+    sep_name <- "tab"
+  } else if (grepl(",", first_line)) {
+    detected_sep <- ","
+    sep_name <- "comma"
+  } else if (grepl(";", first_line)) {
+    detected_sep <- ";"
+    sep_name <- "semicolon"
+  } else if (grepl("\\s+", first_line)) {
+    detected_sep <- ""  # whitespace (one or more)
+    sep_name <- "whitespace"
+  }
+  
+  cat("Detected separator in chromosome length file:", sep_name, "\n")
+  
   chr_lengths <- tryCatch({
-    read.table(opt$chrlength, header=FALSE, sep="\t", stringsAsFactors=FALSE, col.names=c("CHROM", "LENGTH"))
+    read.table(opt$chrlength, header=FALSE, sep=detected_sep, stringsAsFactors=FALSE, col.names=c("CHROM", "LENGTH"))
   }, error = function(e) {
     stop(paste("Error reading chromosome length file:", e$message), call.=FALSE)
   })
@@ -311,11 +342,11 @@ if (use_linewidth) {
     # Draw chromosome rectangles
     geom_rect(data=chr_info, 
               aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
-              fill="lightgray", color="black", linewidth=0.3) +
+              fill="lightgray", color=opt$chrBorderColor, linewidth=opt$chrBorderSize) +
     # Draw variant positions as vertical segments
     geom_segment(data=variant_data,
                  aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
-                 color="red", linewidth=0.5, alpha=0.6) +
+                 color=opt$segmentColor, linewidth=opt$segmentSize, alpha=0.6) +
     scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
     labs(x=paste0("Position (", unit_label, ")"),
          y="Chromosome",
@@ -330,11 +361,11 @@ if (use_linewidth) {
     # Draw chromosome rectangles
     geom_rect(data=chr_info, 
               aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
-              fill="lightgray", color="black", size=0.3) +
+              fill="lightgray", color=opt$chrBorderColor, size=opt$chrBorderSize) +
     # Draw variant positions as vertical segments
     geom_segment(data=variant_data,
                  aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
-                 color="red", size=0.5, alpha=0.6) +
+                 color=opt$segmentColor, size=opt$segmentSize, alpha=0.6) +
     scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
     labs(x=paste0("Position (", unit_label, ")"),
          y="Chromosome",
