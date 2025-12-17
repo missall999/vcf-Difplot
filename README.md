@@ -226,6 +226,15 @@ The script generates a plot where:
 - The x-axis shows position (scaled by the specified unit)
 - The y-axis lists chromosomes
 
+Additionally, the script prints to the console:
+- Summary statistics (total positions, variant positions, non-variant positions)
+- **First 20 positions** that meet the filtering criteria, showing:
+  - CHROM: Chromosome name
+  - POS: Position
+  - Baseline_GT: Genotype of baseline sample
+  - Comparison_GT: Genotype of comparison sample
+- Chromosome information and processing details
+
 ## Features
 
 - **Automatic Sample Detection**: Reads GT column names to identify available samples

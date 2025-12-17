@@ -179,6 +179,15 @@ The generated plot will show:
 - X-axis showing position (in Mb by default)
 - Y-axis showing chromosome names
 
+The console output will display:
+- Summary statistics (total positions, variant/non-variant counts)
+- **Table of first 20 positions** that meet the filtering criteria, showing:
+  - CHROM: Chromosome name
+  - POS: Position on chromosome
+  - Baseline_GT: Genotype of baseline sample
+  - Comparison_GT: Genotype of comparison sample
+- Processing information and warnings
+
 For the example data, you should see:
 
 **Without filters (basic run):**

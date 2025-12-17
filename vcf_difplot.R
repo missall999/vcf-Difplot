@@ -233,6 +233,28 @@ cat("Total positions:", nrow(data), "\n")
 cat("Variant positions:", sum(data$is_variant), "\n")
 cat("Non-variant positions:", sum(!data$is_variant), "\n")
 
+# Print first 20 positions that meet criteria
+cat("\n=== First 20 positions that meet filtering criteria ===\n")
+if (nrow(data) > 0) {
+  # Select columns to display
+  display_data <- data[, c("CHROM", "POS", base_col, comp_col)]
+  colnames(display_data) <- c("CHROM", "POS", "Baseline_GT", "Comparison_GT")
+  
+  # Get first 20 rows (or all if less than 20)
+  n_display <- min(20, nrow(display_data))
+  display_subset <- head(display_data, n_display)
+  
+  # Print as a formatted table
+  print(display_subset, row.names=FALSE)
+  
+  if (nrow(data) > 20) {
+    cat(paste0("\n... (showing 20 of ", nrow(data), " total positions)\n"))
+  }
+} else {
+  cat("No positions meet the filtering criteria.\n")
+}
+cat("========================================================\n\n")
+
 # Get chromosome information
 chromosomes <- unique(data$CHROM)
 cat("Chromosomes found:", paste(chromosomes, collapse=", "), "\n")
