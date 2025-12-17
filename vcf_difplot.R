@@ -236,24 +236,25 @@ cat("Total positions:", nrow(data), "\n")
 cat("Variant positions:", sum(data$is_variant), "\n")
 cat("Non-variant positions:", sum(!data$is_variant), "\n")
 
-# Print first 20 positions that meet criteria
-cat("\n=== First", MAX_DISPLAY_ROWS, "positions that meet filtering criteria ===\n")
-if (nrow(data) > 0) {
+# Print first 20 variant positions (where base and cop differ)
+variant_data <- data[data$is_variant, ]
+cat("\n=== First", MAX_DISPLAY_ROWS, "variant positions (base != cop) ===\n")
+if (nrow(variant_data) > 0) {
   # Get first N rows (or all if less than N)
-  n_display <- min(MAX_DISPLAY_ROWS, nrow(data))
+  n_display <- min(MAX_DISPLAY_ROWS, nrow(variant_data))
   
   # Create display data frame with desired column names
-  display_subset <- head(data[, c("CHROM", "POS", base_col, comp_col)], n_display)
+  display_subset <- head(variant_data[, c("CHROM", "POS", base_col, comp_col)], n_display)
   colnames(display_subset) <- c("CHROM", "POS", "Baseline_GT", "Comparison_GT")
   
   # Print as a formatted table
   print(display_subset, row.names=FALSE)
   
-  if (nrow(data) > MAX_DISPLAY_ROWS) {
-    cat("\n... (showing", MAX_DISPLAY_ROWS, "of", nrow(data), "total positions)\n")
+  if (nrow(variant_data) > MAX_DISPLAY_ROWS) {
+    cat("\n... (showing", MAX_DISPLAY_ROWS, "of", nrow(variant_data), "total variant positions)\n")
   }
 } else {
-  cat("No positions meet the filtering criteria.\n")
+  cat("No variant positions found (all positions have matching genotypes).\n")
 }
 cat("========================================================\n\n")
 

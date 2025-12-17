@@ -228,7 +228,7 @@ The script generates a plot where:
 
 Additionally, the script prints to the console:
 - Summary statistics (total positions, variant positions, non-variant positions)
-- **First 20 positions** that meet the filtering criteria, showing:
+- **First 20 variant positions** (where baseline and comparison genotypes differ), showing:
   - CHROM: Chromosome name
   - POS: Position
   - Baseline_GT: Genotype of baseline sample

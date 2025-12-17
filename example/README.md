@@ -181,7 +181,7 @@ The generated plot will show:
 
 The console output will display:
 - Summary statistics (total positions, variant/non-variant counts)
-- **Table of first 20 positions** that meet the filtering criteria, showing:
+- **Table of first 20 variant positions** (where baseline and comparison genotypes differ), showing:
   - CHROM: Chromosome name
   - POS: Position on chromosome
   - Baseline_GT: Genotype of baseline sample
