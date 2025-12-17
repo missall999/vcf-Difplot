@@ -10,13 +10,13 @@ A sample tab-delimited file that simulates the output from GATK VariantsToTable.
 
 - **CHROM**: Chromosome identifier (chr1-chr5)
 - **POS**: Position on the chromosome
-- **sample1.GT**: Genotype for sample1 (in GATK format: A/T, C|G, ./., etc.)
-- **sample2.GT**: Genotype for sample2 (in GATK format: A/T, C|G, ./., etc.)
+- **sample1.GT**: Genotype for sample1 (in GATK format: A/T, C|G, ./., */* etc.)
+- **sample2.GT**: Genotype for sample2 (in GATK format: A/T, C|G, ./., */* etc.)
 
 The data includes 17 positions across 5 chromosomes with varying genotypes, including:
 - Homozygous genotypes (e.g., A/A, G|G)
 - Heterozygous genotypes (e.g., A/T, C|G)
-- Missing data (./.)
+- Missing data (./.) and wildcards (*/*)
 - Both phased (|) and unphased (/) separators
 
 ### chr_lengths.txt
@@ -191,9 +191,9 @@ The console output will display:
 For the example data, you should see:
 
 **Without filters (basic run):**
-- Total positions: 15 (after removing 2 positions with ./.)
+- Total positions: 15 (after removing 2 positions with ./. or */*)
 - Variant positions vary based on genotype differences
-- Positions with ./. in either column are automatically excluded
+- Positions with ./. or */* in either column are automatically excluded
 
 **With --baseHetcheck:**
 - Only positions where sample1 is homozygous (A/A, G/G, T|T, etc.)

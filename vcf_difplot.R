@@ -157,8 +157,8 @@ parse_genotype <- function(gt) {
   # Split by /
   alleles <- strsplit(gt, "/")[[1]]
   
-  # Check for missing data
-  if (any(alleles == ".")) {
+  # Check for missing data (.) or wildcards (*)
+  if (any(alleles == ".") || any(alleles == "*")) {
     return(NULL)
   }
   
@@ -232,10 +232,10 @@ if (should_use_parallel) {
     data$base_gt_norm <- parSapply(cl, data[[base_col]], normalize_genotype)
     data$comp_gt_norm <- parSapply(cl, data[[comp_col]], normalize_genotype)
     
-    # Create initial filter: exclude positions with missing data (./.)
+    # Create initial filter: exclude positions with missing data (./.) or wildcards (*/*)
     data$keep <- !is.na(data$base_gt_norm) & !is.na(data$comp_gt_norm)
     
-    cat("Positions after removing missing data (./.): ", sum(data$keep), "\n")
+    cat("Positions after removing missing data (./.) and wildcards (*/*): ", sum(data$keep), "\n")
     
     # Apply baseline homozygosity check if requested
     if (opt$baseHetcheck) {
@@ -277,10 +277,10 @@ if (!should_use_parallel) {
   data$base_gt_norm <- sapply(data[[base_col]], normalize_genotype)
   data$comp_gt_norm <- sapply(data[[comp_col]], normalize_genotype)
   
-  # Create initial filter: exclude positions with missing data (./.)
+  # Create initial filter: exclude positions with missing data (./.) or wildcards (*/*)
   data$keep <- !is.na(data$base_gt_norm) & !is.na(data$comp_gt_norm)
   
-  cat("Positions after removing missing data (./.): ", sum(data$keep), "\n")
+  cat("Positions after removing missing data (./.) and wildcards (*/*): ", sum(data$keep), "\n")
   
   # Apply baseline homozygosity check if requested
   if (opt$baseHetcheck) {

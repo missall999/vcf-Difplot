@@ -97,7 +97,7 @@ Rscript vcf_difplot.R [options]
 The script properly handles GATK VariantsToTable genotype formats:
 - Supports both `/` and `|` as separators (phased and unphased)
 - Treats `A/T` and `T|A` as equivalent (normalizes for comparison)
-- Automatically filters out positions with missing data (`./.`)
+- Automatically filters out positions with missing data (`./.`) or wildcards (`*/*`)
 - Can optionally filter for homozygous positions only
 - **Smart chromosome sorting**: Chromosomes are sorted in natural numerical order (Chr1, Chr2, ..., Chr10, Chr11) instead of alphabetical order
 
