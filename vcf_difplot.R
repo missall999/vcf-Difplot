@@ -247,9 +247,8 @@ if (!is.null(opt$chrlength)) {
   cat("Reading chromosome length file:", opt$chrlength, "\n")
   
   # Intelligent separator detection
-  # Read first few lines to detect separator
-  all_lines <- readLines(opt$chrlength, warn=FALSE)
-  first_lines <- head(all_lines, n=min(5, length(all_lines)))
+  # Read first few lines to detect separator (max 5 lines)
+  first_lines <- readLines(opt$chrlength, n=5, warn=FALSE)
   
   # Count occurrences of different separators across all lines
   # gregexpr returns -1 when no match found, so we need to check for that
@@ -265,27 +264,20 @@ if (!is.null(opt$chrlength)) {
   comma_count <- count_separator(first_lines, ",")
   semicolon_count <- count_separator(first_lines, ";")
   
-  # Determine separator based on highest count
-  # Priority: tab > comma > semicolon > whitespace (default)
-  counts <- c(tab=tab_count, comma=comma_count, semicolon=semicolon_count)
-  max_count <- max(counts)
+  # Determine separator based on highest count with explicit priority
+  # Priority when counts are tied: tab > comma > semicolon > whitespace
+  detected_sep <- ""  # default to whitespace
+  sep_name <- "whitespace"
   
-  if (max_count > 0) {
-    sep_type <- names(counts)[which.max(counts)]
-    if (sep_type == "tab") {
-      detected_sep <- "\t"
-      sep_name <- "tab"
-    } else if (sep_type == "comma") {
-      detected_sep <- ","
-      sep_name <- "comma"
-    } else if (sep_type == "semicolon") {
-      detected_sep <- ";"
-      sep_name <- "semicolon"
-    }
-  } else {
-    # Default to whitespace
-    detected_sep <- ""
-    sep_name <- "whitespace"
+  if (tab_count > 0 && tab_count >= comma_count && tab_count >= semicolon_count) {
+    detected_sep <- "\t"
+    sep_name <- "tab"
+  } else if (comma_count > 0 && comma_count > semicolon_count) {
+    detected_sep <- ","
+    sep_name <- "comma"
+  } else if (semicolon_count > 0) {
+    detected_sep <- ";"
+    sep_name <- "semicolon"
   }
   
   cat("Detected separator in chromosome length file:", sep_name, "\n")
