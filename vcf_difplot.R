@@ -147,6 +147,12 @@ parse_genotype <- function(gt) {
     return(NULL)
   }
   
+  # Validate: should have exactly 2 alleles for diploid genotypes
+  if (length(alleles) != 2) {
+    warning(paste("Unexpected number of alleles in genotype:", gt, "- expected 2, got", length(alleles)))
+    return(NULL)
+  }
+  
   return(alleles)
 }
 
