@@ -247,22 +247,34 @@ if (!is.null(opt$chrlength)) {
   cat("Reading chromosome length file:", opt$chrlength, "\n")
   
   # Intelligent separator detection
-  # Read first line to detect separator
-  first_line <- readLines(opt$chrlength, n=1, warn=FALSE)
+  # Read first few lines to detect separator
+  first_lines <- readLines(opt$chrlength, n=min(5, length(readLines(opt$chrlength, warn=FALSE))), warn=FALSE)
   
-  # Detect separator: try tab, comma, space, semicolon
-  detected_sep <- "\t"  # default to tab
-  if (grepl("\t", first_line)) {
-    detected_sep <- "\t"
-    sep_name <- "tab"
-  } else if (grepl(",", first_line)) {
-    detected_sep <- ","
-    sep_name <- "comma"
-  } else if (grepl(";", first_line)) {
-    detected_sep <- ";"
-    sep_name <- "semicolon"
-  } else if (grepl("\\s+", first_line)) {
-    detected_sep <- ""  # whitespace (one or more)
+  # Count occurrences of different separators across all lines
+  tab_count <- sum(sapply(first_lines, function(x) length(gregexpr("\t", x)[[1]])))
+  comma_count <- sum(sapply(first_lines, function(x) length(gregexpr(",", x)[[1]])))
+  semicolon_count <- sum(sapply(first_lines, function(x) length(gregexpr(";", x)[[1]])))
+  
+  # Determine separator based on highest count
+  # Priority: tab > comma > semicolon > whitespace (default)
+  counts <- c(tab=tab_count, comma=comma_count, semicolon=semicolon_count)
+  max_count <- max(counts)
+  
+  if (max_count > 0) {
+    sep_type <- names(counts)[which.max(counts)]
+    if (sep_type == "tab") {
+      detected_sep <- "\t"
+      sep_name <- "tab"
+    } else if (sep_type == "comma") {
+      detected_sep <- ","
+      sep_name <- "comma"
+    } else if (sep_type == "semicolon") {
+      detected_sep <- ";"
+      sep_name <- "semicolon"
+    }
+  } else {
+    # Default to whitespace
+    detected_sep <- ""
     sep_name <- "whitespace"
   }
   
