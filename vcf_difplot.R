@@ -272,7 +272,7 @@ if (!is.null(opt$chrlength)) {
   if (tab_count > 0 && tab_count >= comma_count && tab_count >= semicolon_count) {
     detected_sep <- "\t"
     sep_name <- "tab"
-  } else if (comma_count > 0 && comma_count > semicolon_count) {
+  } else if (comma_count > 0 && comma_count >= semicolon_count) {
     detected_sep <- ","
     sep_name <- "comma"
   } else if (semicolon_count > 0) {
