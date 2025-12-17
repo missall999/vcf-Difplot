@@ -10,6 +10,9 @@ suppressPackageStartupMessages({
   library(optparse)
 })
 
+# Constants
+MAX_DISPLAY_ROWS <- 20  # Maximum number of positions to display in console output
+
 # Define command-line options
 option_list <- list(
   make_option(c("-i", "--input"), type="character", default=NULL,
@@ -234,21 +237,25 @@ cat("Variant positions:", sum(data$is_variant), "\n")
 cat("Non-variant positions:", sum(!data$is_variant), "\n")
 
 # Print first 20 positions that meet criteria
-cat("\n=== First 20 positions that meet filtering criteria ===\n")
+cat("\n=== First", MAX_DISPLAY_ROWS, "positions that meet filtering criteria ===\n")
 if (nrow(data) > 0) {
-  # Select columns to display
-  display_data <- data[, c("CHROM", "POS", base_col, comp_col)]
-  colnames(display_data) <- c("CHROM", "POS", "Baseline_GT", "Comparison_GT")
+  # Get first N rows (or all if less than N)
+  n_display <- min(MAX_DISPLAY_ROWS, nrow(data))
   
-  # Get first 20 rows (or all if less than 20)
-  n_display <- min(20, nrow(display_data))
-  display_subset <- head(display_data, n_display)
+  # Create display data frame with desired column names
+  display_subset <- data.frame(
+    CHROM = data$CHROM[1:n_display],
+    POS = data$POS[1:n_display],
+    Baseline_GT = data[[base_col]][1:n_display],
+    Comparison_GT = data[[comp_col]][1:n_display],
+    stringsAsFactors = FALSE
+  )
   
   # Print as a formatted table
   print(display_subset, row.names=FALSE)
   
-  if (nrow(data) > 20) {
-    cat(paste0("\n... (showing 20 of ", nrow(data), " total positions)\n"))
+  if (nrow(data) > MAX_DISPLAY_ROWS) {
+    cat(paste0("\n... (showing ", MAX_DISPLAY_ROWS, " of ", nrow(data), " total positions)\n"))
   }
 } else {
   cat("No positions meet the filtering criteria.\n")
