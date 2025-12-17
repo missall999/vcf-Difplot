@@ -248,12 +248,22 @@ if (!is.null(opt$chrlength)) {
   
   # Intelligent separator detection
   # Read first few lines to detect separator
-  first_lines <- readLines(opt$chrlength, n=min(5, length(readLines(opt$chrlength, warn=FALSE))), warn=FALSE)
+  all_lines <- readLines(opt$chrlength, warn=FALSE)
+  first_lines <- head(all_lines, n=min(5, length(all_lines)))
   
   # Count occurrences of different separators across all lines
-  tab_count <- sum(sapply(first_lines, function(x) length(gregexpr("\t", x)[[1]])))
-  comma_count <- sum(sapply(first_lines, function(x) length(gregexpr(",", x)[[1]])))
-  semicolon_count <- sum(sapply(first_lines, function(x) length(gregexpr(";", x)[[1]])))
+  # gregexpr returns -1 when no match found, so we need to check for that
+  count_separator <- function(lines, pattern) {
+    sum(sapply(lines, function(x) {
+      matches <- gregexpr(pattern, x)[[1]]
+      if (matches[1] == -1) return(0)
+      return(length(matches))
+    }))
+  }
+  
+  tab_count <- count_separator(first_lines, "\t")
+  comma_count <- count_separator(first_lines, ",")
+  semicolon_count <- count_separator(first_lines, ";")
   
   # Determine separator based on highest count
   # Priority: tab > comma > semicolon > whitespace (default)
