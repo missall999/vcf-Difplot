@@ -157,7 +157,7 @@ parse_genotype <- function(gt) {
   # Split by /
   alleles <- strsplit(gt, "/")[[1]]
   
-  # Check for missing data (.) or wildcards (*)
+  # Check for missing data (.) or wildcards (*) representing deletions/complex variants
   if (any(alleles == ".") || any(alleles == "*")) {
     return(NULL)
   }
