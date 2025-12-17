@@ -128,12 +128,12 @@ if (!is.null(opt$copname)) {
 
 # Helper functions for genotype processing
 
-# Normalize genotype: treat / and | as equivalent separators
+# Parse genotype into alleles, handling missing data
 # Input: genotype string like "A/T", "C|G", "./.", etc.
-# Output: sorted alleles separated by "/" (e.g., "A/T" -> "A/T", "T|A" -> "A/T")
-normalize_genotype <- function(gt) {
-  if (is.na(gt) || gt == "" || gt == "./.") {
-    return(NA)
+# Output: vector of alleles, or NULL if missing data
+parse_genotype <- function(gt) {
+  if (is.na(gt) || gt == "") {
+    return(NULL)
   }
   
   # Replace | with / for consistent processing
@@ -144,6 +144,19 @@ normalize_genotype <- function(gt) {
   
   # Check for missing data
   if (any(alleles == ".")) {
+    return(NULL)
+  }
+  
+  return(alleles)
+}
+
+# Normalize genotype: treat / and | as equivalent separators
+# Input: genotype string like "A/T", "C|G", "./.", etc.
+# Output: sorted alleles separated by "/" (e.g., "A/T" -> "A/T", "T|A" -> "A/T")
+normalize_genotype <- function(gt) {
+  alleles <- parse_genotype(gt)
+  
+  if (is.null(alleles)) {
     return(NA)
   }
   
@@ -158,18 +171,9 @@ normalize_genotype <- function(gt) {
 # Input: genotype string like "A/A", "G|G", "A/T"
 # Output: TRUE if homozygous, FALSE if heterozygous, NA if missing
 is_homozygous <- function(gt) {
-  if (is.na(gt) || gt == "" || gt == "./.") {
-    return(NA)
-  }
+  alleles <- parse_genotype(gt)
   
-  # Replace | with / for consistent processing
-  gt <- gsub("\\|", "/", gt)
-  
-  # Split by /
-  alleles <- strsplit(gt, "/")[[1]]
-  
-  # Check for missing data
-  if (any(alleles == ".")) {
+  if (is.null(alleles)) {
     return(NA)
   }
   
