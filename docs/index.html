@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>男女比例模拟与家谱图展示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f0f0f0;
+            color: #333;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            overflow: hidden;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            max-width: 900px;
+            margin: 0 auto 20px;
+            color: #555;
+            text-align: left;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .simulation-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .year-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .year-display {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2c3e50;
+            background-color: #ecf0f1;
+            padding: 10px 20px;
+            border-radius: 6px;
+            min-width: 180px;
+            text-align: center;
+        }
+        
+        .time-navigation {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .primary-btn {
+            background-color: #2ecc71;
+        }
+        
+        .primary-btn:hover {
+            background-color: #27ae60;
+        }
+        
+        .secondary-btn {
+            background-color: #e74c3c;
+        }
+        
+        .secondary-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .year-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="range"] {
+            width: 200px;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-box {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .stat-box h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .female-stat {
+            border-left-color: #e74c3c;
+        }
+        
+        .male-stat {
+            border-left-color: #3498db;
+        }
+        
+        .couple-stat {
+            border-left-color: #9b59b6;
+        }
+        
+        .simulation-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .graph-container {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            overflow: auto;
+            min-height: 600px;
+            position: relative;
+        }
+        
+        #pedigree-chart {
+            width: 100%;
+            height: 580px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        
+        .female-color {
+            background-color: #e74c3c;
+        }
+        
+        .male-color {
+            background-color: #3498db;
+        }
+        
+        .legend-text {
+            font-size: 0.95rem;
+        }
+        
+        .explanation {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .explanation h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .explanation ul {
+            padding-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .explanation li {
+            margin-bottom: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .simulation-controls, .year-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .year-controls {
+                gap: 10px;
+            }
+            
+            .time-navigation {
+                justify-content: center;
+                margin-top: 10px;
+            }
+            
+            .graph-container {
+                min-height: 500px;
+            }
+            
+            #pedigree-chart {
+                height: 480px;
+            }
+            
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>男女比例模拟与家谱图展示</h1>
+            <div class="description">
+                <p>本模拟展示在特定生育策略下（每对夫妻生育直到生出男孩为止）的男女比例变化。初始状态：10对夫妻，年龄均为20岁，互相之间没有亲缘关系。模拟周期为100年。</p>
+            </div>
+        </header>
+        
+        <div class="simulation-controls">
+            <div class="year-controls">
+                <div class="year-display">
+                    年份: <span id="current-year">0</span>/100
+                </div>
+                
+                <div class="time-navigation">
+                    <button id="prev-year" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.5 7.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H11.5z"/>
+                        </svg>
+                        上一年
+                    </button>
+                    <button id="next-year">
+                        下一年
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H4.5z"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="year-selector">
+                    <span>跳转到年份:</span>
+                    <input type="range" id="year-slider" min="0" max="100" value="0" step="1">
+                    <input type="number" id="year-input" min="0" max="100" value="0" style="width: 70px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                </div>
+            </div>
+            
+            <button id="reset-btn" class="secondary-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+                重置模拟
+            </button>
+        </div>
+        
+        <div class="stats-container">
+            <div class="stat-box">
+                <h3>总人口</h3>
+                <div class="stat-value" id="total-population">20</div>
+            </div>
+            <div class="stat-box female-stat">
+                <h3>女性人口</h3>
+                <div class="stat-value" id="female-population">10</div>
+            </div>
+            <div class="stat-box male-stat">
+                <h3>男性人口</h3>
+                <div class="stat-value" id="male-population">10</div>
+            </div>
+            <div class="stat-box couple-stat">
+                <h3>夫妻对数</h3>
+                <div class="stat-value" id="couple-count">10</div>
+            </div>
+            <div class="stat-box">
+                <h3>性别比例(女:男)</h3>
+                <div class="stat-value" id="gender-ratio">1.00</div>
+            </div>
+        </div>
+        
+        <div class="simulation-area">
+            <div class="graph-container">
+                <svg id="pedigree-chart"></svg>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color female-color"></div>
+                    <div class="legend-text">女性</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color male-color"></div>
+                    <div class="legend-text">男性</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="explanation">
+            <h3>模拟规则说明</h3>
+            <ul>
+                <li>每对夫妻每年生一胎，生男生女的概率各为50%</li>
+                <li>若生出男孩则停止生育，生出女孩则继续生育直到生出男孩</li>
+                <li>年龄在20-40岁之间的未婚人士随机配对，避免两代以内的亲缘关系</li>
+                <li>超过40岁的未婚人士不再参与配对</li>
+                <li>家谱图中，每个圆圈代表一个人，红色代表女性，蓝色代表男性</li>
+                <li>点击个体可查看详细信息</li>
+            </ul>
+            <p>注：由于数据量限制，本模拟在家谱图中仅展示当前年份的核心家庭关系。</p>
+        </div>
+    </div>
+
+    <script>
+        // 模拟参数
+        const SIMULATION_YEARS = 100;
+        const INITIAL_COUPLES = 10;
+        const INITIAL_AGE = 20;
+        const MIN_MARRIAGE_AGE = 20;
+        const MAX_MARRIAGE_AGE = 40;
+        const MAX_CHILD_BEARING_AGE = 40;
+        
+        // 全局变量
+        let currentYear = 0;
+        let allYearsData = [];
+        let peopleMap = new Map(); // ID -> person
+        let nextPersonId = 1;
+        let allCouples = [];
+        
+        // 人物类
+        class Person {
+            constructor(id, gender, birthYear, fatherId = null, motherId = null) {
+                this.id = id;
+                this.gender = gender; // 'M' 或 'F'
+                this.birthYear = birthYear;
+                this.age = currentYear - birthYear;
+                this.fatherId = fatherId;
+                this.motherId = motherId;
+                this.spouseId = null;
+                this.childrenIds = [];
+                this.alive = true;
+            }
+            
+            updateAge() {
+                this.age = currentYear - this.birthYear;
+            }
+            
+            isMarriageable() {
+                return this.age >= MIN_MARRIAGE_AGE && 
+                       this.age <= MAX_MARRIAGE_AGE && 
+                       this.spouseId === null;
+            }
+            
+            canBearChildren() {
+                return this.gender === 'F' && 
+                       this.age >= MIN_MARRIAGE_AGE && 
+                       this.age <= MAX_CHILD_BEARING_AGE &&
+                       this.spouseId !== null;
+            }
+        }
+        
+        // 初始化模拟
+        function initializeSimulation() {
+            currentYear = 0;
+            peopleMap.clear();
+            allCouples = [];
+            nextPersonId = 1;
+            
+            // 创建初始的10对夫妻
+            for (let i = 0; i < INITIAL_COUPLES; i++) {
+                const manId = nextPersonId++;
+                const womanId = nextPersonId++;
+                
+                const man = new Person(manId, 'M', -INITIAL_AGE);
+                const woman = new Person(womanId, 'F', -INITIAL_AGE);
+                
+                man.spouseId = womanId;
+                woman.spouseId = manId;
+                
+                peopleMap.set(manId, man);
+                peopleMap.set(womanId, woman);
+                
+                allCouples.push([manId, womanId]);
+            }
+            
+            saveYearData();
+            updateDisplay();
+        }
+        
+        // 保存当前年份的数据
+        function saveYearData() {
+            const yearData = {
+                year: currentYear,
+                people: Array.from(peopleMap.values()).map(p => ({...p})), // 浅拷贝
+                couples: allCouples.map(c => [...c]) // 浅拷贝
+            };
+            
+            if (allYearsData.length <= currentYear) {
+                allYearsData.push(yearData);
+            } else {
+                allYearsData[currentYear] = yearData;
+            }
+        }
+        
+        // 运行一年的模拟
+        function simulateYear() {
+            if (currentYear >= SIMULATION_YEARS) return;
+            
+            currentYear++;
+            
+            // 更新所有人的年龄
+            peopleMap.forEach(person => {
+                person.updateAge();
+            });
+            
+            // 生育过程
+            allCouples.forEach(couple => {
+                const [husbandId, wifeId] = couple;
+                const wife = peopleMap.get(wifeId);
+                
+                // 如果妻子在生育年龄内且没有男孩，则生育
+                if (wife.canBearChildren()) {
+                    // 检查是否已经有男孩
+                    const hasBoy = wife.childrenIds.some(childId => {
+                        const child = peopleMap.get(childId);
+                        return child && child.gender === 'M';
+                    });
+                    
+                    // 如果没有男孩，则生育
+                    if (!hasBoy) {
+                        // 50%概率生男孩
+                        const isBoy = Math.random() < 0.5;
+                        const childGender = isBoy ? 'M' : 'F';
+                        const childId = nextPersonId++;
+                        
+                        const child = new Person(childId, childGender, currentYear, husbandId, wifeId);
+                        peopleMap.set(childId, child);
+                        
+                        // 添加到父母的孩子列表中
+                        const husband = peopleMap.get(husbandId);
+                        husband.childrenIds.push(childId);
+                        wife.childrenIds.push(childId);
+                    }
+                }
+            });
+            
+            // 配对过程：年龄在20-40之间的未婚人士随机配对
+            const marriageableMen = [];
+            const marriageableWomen = [];
+            
+            peopleMap.forEach(person => {
+                if (person.isMarriageable()) {
+                    if (person.gender === 'M') {
+                        marriageableMen.push(person.id);
+                    } else {
+                        marriageableWomen.push(person.id);
+                    }
+                }
+            });
+            
+            // 随机打乱数组
+            shuffleArray(marriageableMen);
+            shuffleArray(marriageableWomen);
+            
+            // 配对，避免近亲婚姻（简化版：仅避免兄弟姐妹和父母子女关系）
+            while (marriageableMen.length > 0 && marriageableWomen.length > 0) {
+                const manId = marriageableMen.pop();
+                const womanId = marriageableWomen.pop();
+                
+                // 简化版近亲检查：不是兄弟姐妹关系
+                if (!areSiblings(manId, womanId)) {
+                    const man = peopleMap.get(manId);
+                    const woman = peopleMap.get(womanId);
+                    
+                    man.spouseId = womanId;
+                    woman.spouseId = manId;
+                    
+                    allCouples.push([manId, womanId]);
+                }
+            }
+            
+            saveYearData();
+            updateDisplay();
+        }
+        
+        // 检查两个人是否是兄弟姐妹
+        function areSiblings(personId1, personId2) {
+            const person1 = peopleMap.get(personId1);
+            const person2 = peopleMap.get(personId2);
+            
+            if (!person1 || !person2) return false;
+            
+            // 如果他们有相同的父亲或母亲，则是兄弟姐妹
+            return (person1.fatherId && person1.fatherId === person2.fatherId) ||
+                   (person1.motherId && person1.motherId === person2.motherId);
+        }
+        
+        // 随机打乱数组（Fisher-Yates洗牌算法）
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        // 更新显示
+        function updateDisplay() {
+            // 更新年份显示
+            document.getElementById('current-year').textContent = currentYear;
+            
+            // 更新统计信息
+            const allPeople = Array.from(peopleMap.values());
+            const alivePeople = allPeople.filter(p => p.alive);
+            const females = alivePeople.filter(p => p.gender === 'F');
+            const males = alivePeople.filter(p => p.gender === 'M');
+            const couples = allCouples.length;
+            const genderRatio = females.length > 0 ? (females.length / males.length).toFixed(2) : "N/A";
+            
+            document.getElementById('total-population').textContent = alivePeople.length;
+            document.getElementById('female-population').textContent = females.length;
+            document.getElementById('male-population').textContent = males.length;
+            document.getElementById('couple-count').textContent = couples;
+            document.getElementById('gender-ratio').textContent = genderRatio;
+            
+            // 更新按钮状态
+            document.getElementById('prev-year').disabled = currentYear === 0;
+            document.getElementById('next-year').disabled = currentYear === SIMULATION_YEARS;
+            
+            // 更新滑块和输入框
+            document.getElementById('year-slider').value = currentYear;
+            document.getElementById('year-input').value = currentYear;
+            
+            // 更新家谱图
+            drawPedigreeChart();
+        }
+        
+        // 绘制家谱图
+        function drawPedigreeChart() {
+            const svg = document.getElementById('pedigree-chart');
+            svg.innerHTML = '';
+            
+            const width = svg.clientWidth;
+            const height = svg.clientHeight;
+            
+            // 获取当前年份的数据
+            const yearData = allYearsData[currentYear] || {people: [], couples: []};
+            
+            // 只显示部分核心家庭（避免图形过于拥挤）
+            const displayedPeople = new Set();
+            const displayedCouples = [];
+            
+            // 选择一些核心家庭进行显示
+            const allCouplesList = yearData.couples || [];
+            const maxDisplayedCouples = 15; // 最多显示15对夫妻
+            
+            // 随机选择一些夫妻进行展示（为了演示效果）
+            const displayedCouplesCount = Math.min(maxDisplayedCouples, allCouplesList.length);
+            const selectedCouples = [];
+            
+            if (allCouplesList.length > 0) {
+                // 优先选择年龄较小的夫妻（更可能正在生育）
+                const couplesWithAge = allCouplesList.map(couple => {
+                    const [husbandId, wifeId] = couple;
+                    const husband = peopleMap.get(husbandId);
+                    const wife = peopleMap.get(wifeId);
+                    const avgAge = husband && wife ? (husband.age + wife.age) / 2 : 100;
+                    return {couple, avgAge};
+                });
+                
+                // 按平均年龄排序，年轻的先显示
+                couplesWithAge.sort((a, b) => a.avgAge - b.avgAge);
+                
+                for (let i = 0; i < displayedCouplesCount; i++) {
+                    if (i < couplesWithAge.length) {
+                        selectedCouples.push(couplesWithAge[i].couple);
+                    }
+                }
+            }
+            
+            // 添加选中的夫妻及其孩子到显示列表
+            selectedCouples.forEach(couple => {
+                const [husbandId, wifeId] = couple;
+                
+                // 添加到显示列表
+                displayedPeople.add(husbandId);
+                displayedPeople.add(wifeId);
+                displayedCouples.push(couple);
+                
+                // 添加他们的孩子
+                const husband = peopleMap.get(husbandId);
+                if (husband && husband.childrenIds.length > 0) {
+                    // 每个家庭最多显示5个孩子（避免过于拥挤）
+                    const maxChildren = 5;
+                    for (let i = 0; i < Math.min(maxChildren, husband.childrenIds.length); i++) {
+                        displayedPeople.add(husband.childrenIds[i]);
+                    }
+                }
+            });
+            
+            // 如果没有夫妻，则显示所有人
+            if (displayedPeople.size === 0) {
+                const allPeople = Array.from(peopleMap.values());
+                allPeople.forEach(person => {
+                    displayedPeople.add(person.id);
+                });
+            }
+            
+            // 将显示的人转换为数组
+            const displayedPeopleArray = Array.from(displayedPeople);
+            
+            // 为每个人计算位置
+            const positions = new Map();
+            const radius = 20;
+            const horizontalSpacing = 60;
+            const verticalSpacing = 80;
+            
+            // 按家庭分组布局
+            let startX = 50;
+            let startY = 80;
+            
+            // 绘制夫妻对
+            displayedCouples.forEach((couple, coupleIndex) => {
+                const [husbandId, wifeId] = couple;
+                const husband = peopleMap.get(husbandId);
+                const wife = peopleMap.get(wifeId);
+                
+                if (!husband || !wife) return;
+                
+                // 夫妻位置
+                const coupleX = startX + coupleIndex * (horizontalSpacing * 4);
+                const coupleY = startY;
+                
+                // 丈夫位置
+                positions.set(husbandId, {x: coupleX, y: coupleY});
+                
+                // 妻子位置
+                positions.set(wifeId, {x: coupleX + horizontalSpacing, y: coupleY});
+                
+                // 绘制连接线（夫妻关系）
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', coupleX + radius);
+                line.setAttribute('y1', coupleY);
+                line.setAttribute('x2', coupleX + horizontalSpacing - radius);
+                line.setAttribute('y2', coupleY);
+                line.setAttribute('stroke', '#7f8c8d');
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(line);
+                
+                // 绘制孩子
+                const childrenIds = husband.childrenIds.filter(id => displayedPeople.has(id));
+                if (childrenIds.length > 0) {
+                    const childrenStartX = coupleX - (childrenIds.length - 1) * horizontalSpacing / 2;
+                    
+                    childrenIds.forEach((childId, childIndex) => {
+                        const childX = childrenStartX + childIndex * horizontalSpacing;
+                        const childY = coupleY + verticalSpacing;
+                        
+                        positions.set(childId, {x: childX, y: childY});
+                        
+                        // 绘制连接线（父子关系）
+                        const parentX = childIndex === 0 ? coupleX : coupleX + horizontalSpacing;
+                        const parentY = coupleY;
+                        
+                        const childLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        childLine.setAttribute('x1', parentX);
+                        childLine.setAttribute('y1', parentY + radius);
+                        childLine.setAttribute('x2', childX);
+                        childLine.setAttribute('y2', childY - radius);
+                        childLine.setAttribute('stroke', '#7f8c8d');
+                        childLine.setAttribute('stroke-width', '2');
+                        svg.appendChild(childLine);
+                    });
+                }
+            });
+            
+            // 绘制未被包含在夫妻关系中的个人
+            const unplacedPeople = displayedPeopleArray.filter(id => !positions.has(id));
+            let unplacedX = 50;
+            const unplacedY = height - 100;
+            
+            unplacedPeople.forEach((personId, index) => {
+                const person = peopleMap.get(personId);
+                if (!person) return;
+                
+                positions.set(personId, {x: unplacedX + index * horizontalSpacing, y: unplacedY});
+            });
+            
+            // 绘制所有人
+            positions.forEach((pos, personId) => {
+                const person = peopleMap.get(personId);
+                if (!person) return;
+                
+                // 绘制圆形代表人物
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', pos.x);
+                circle.setAttribute('cy', pos.y);
+                circle.setAttribute('r', radius);
+                circle.setAttribute('fill', person.gender === 'M' ? '#3498db' : '#e74c3c');
+                circle.setAttribute('stroke', '#2c3e50');
+                circle.setAttribute('stroke-width', '2');
+                circle.setAttribute('data-id', personId);
+                circle.classList.add('person-node');
+                
+                // 添加悬停效果
+                circle.addEventListener('mouseenter', function() {
+                    this.setAttribute('stroke-width', '3');
+                    this.setAttribute('stroke', '#f1c40f');
+                    
+                    // 显示详细信息
+                    showPersonInfo(personId, pos.x, pos.y);
+                });
+                
+                circle.addEventListener('mouseleave', function() {
+                    this.setAttribute('stroke-width', '2');
+                    this.setAttribute('stroke', '#2c3e50');
+                    
+                    // 隐藏详细信息
+                    hidePersonInfo();
+                });
+                
+                svg.appendChild(circle);
+                
+                // 显示人物ID/编号
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', pos.x);
+                text.setAttribute('y', pos.y + 5);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', 'white');
+                text.setAttribute('font-size', '12');
+                text.setAttribute('font-weight', 'bold');
+                text.textContent = personId;
+                svg.appendChild(text);
+                
+                // 显示年龄
+                const ageText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                ageText.setAttribute('x', pos.x);
+                ageText.setAttribute('y', pos.y + radius + 15);
+                ageText.setAttribute('text-anchor', 'middle');
+                ageText.setAttribute('fill', '#2c3e50');
+                ageText.setAttribute('font-size', '10');
+                ageText.textContent = `${person.age}岁`;
+                svg.appendChild(ageText);
+            });
+            
+            // 如果没有显示任何人，显示提示信息
+            if (positions.size === 0) {
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', width / 2);
+                text.setAttribute('y', height / 2);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#7f8c8d');
+                text.setAttribute('font-size', '18');
+                text.textContent = '当前年份没有可显示的数据';
+                svg.appendChild(text);
+            }
+        }
+        
+        // 显示人物详细信息
+        function showPersonInfo(personId, x, y) {
+            const person = peopleMap.get(personId);
+            if (!person) return;
+            
+            const svg = document.getElementById('pedigree-chart');
+            
+            // 创建信息框
+            const infoBox = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+            infoBox.setAttribute('x', Math.min(x + 30, svg.clientWidth - 200));
+            infoBox.setAttribute('y', Math.max(y - 100, 10));
+            infoBox.setAttribute('width', '180');
+            infoBox.setAttribute('height', '140');
+            infoBox.setAttribute('id', 'person-info');
+            
+            const infoHTML = `
+                <div xmlns="http://www.w3.org/1999/xhtml" style="
+                    background: white;
+                    padding: 12px;
+                    border-radius: 6px;
+                    border: 2px solid #3498db;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                    font-size: 12px;
+                    line-height: 1.4;
+                ">
+                    <div style="font-weight: bold; margin-bottom: 8px; color: #2c3e50;">
+                        个体信息 #${person.id}
+                    </div>
+                    <div><strong>性别:</strong> ${person.gender === 'M' ? '男性' : '女性'}</div>
+                    <div><strong>年龄:</strong> ${person.age}岁</div>
+                    <div><strong>出生年份:</strong> ${person.birthYear}</div>
+                    <div><strong>父亲ID:</strong> ${person.fatherId || '无'}</div>
+                    <div><strong>母亲ID:</strong> ${person.motherId || '无'}</div>
+                    <div><strong>配偶ID:</strong> ${person.spouseId || '无'}</div>
+                    <div><strong>子女数量:</strong> ${person.childrenIds.length}</div>
+                </div>
+            `;
+            
+            infoBox.innerHTML = infoHTML;
+            svg.appendChild(infoBox);
+        }
+        
+        // 隐藏人物详细信息
+        function hidePersonInfo() {
+            const infoBox = document.getElementById('person-info');
+            if (infoBox) {
+                infoBox.remove();
+            }
+        }
+        
+        // 跳转到指定年份
+        function goToYear(year) {
+            year = Math.max(0, Math.min(SIMULATION_YEARS, parseInt(year) || 0));
+            
+            // 如果年份大于当前模拟的年份，则模拟到该年份
+            while (currentYear < year && currentYear < SIMULATION_YEARS) {
+                simulateYear();
+            }
+            
+            // 如果年份小于当前模拟的年份，则从历史数据加载
+            if (year < currentYear && allYearsData[year]) {
+                currentYear = year;
+                
+                // 重新加载该年份的数据
+                const yearData = allYearsData[year];
+                peopleMap.clear();
+                allCouples = [];
+                
+                yearData.people.forEach(p => {
+                    peopleMap.set(p.id, p);
+                });
+                
+                yearData.couples.forEach(c => {
+                    allCouples.push(c);
+                });
+                
+                updateDisplay();
+            }
+        }
+        
+        // 事件监听器设置
+        function setupEventListeners() {
+            document.getElementById('prev-year').addEventListener('click', () => {
+                if (currentYear > 0) {
+                    goToYear(currentYear - 1);
+                }
+            });
+            
+            document.getElementById('next-year').addEventListener('click', () => {
+                if (currentYear < SIMULATION_YEARS) {
+                    simulateYear();
+                }
+            });
+            
+            document.getElementById('year-slider').addEventListener('input', function() {
+                const year = this.value;
+                document.getElementById('year-input').value = year;
+                goToYear(year);
+            });
+            
+            document.getElementById('year-input').addEventListener('change', function() {
+                const year = this.value;
+                document.getElementById('year-slider').value = year;
+                goToYear(year);
+            });
+            
+            document.getElementById('reset-btn').addEventListener('click', initializeSimulation);
+            
+            // 窗口大小变化时重新绘制家谱图
+            window.addEventListener('resize', drawPedigreeChart);
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSimulation();
+            setupEventListeners();
+        });
+    </script>
+</body>
+</html>
