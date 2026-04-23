@@ -46,7 +46,9 @@ option_list <- list(
   make_option(c("--chrBorderSize"), type="numeric", default=0.3,
               help="Thickness of chromosome borders [default=%default]", metavar="NUM"),
   make_option(c("-t", "--threads"), type="integer", default=1,
-              help="Number of threads for parallel processing by chromosome [default=%default]", metavar="INT")
+              help="Number of threads for parallel processing by chromosome [default=%default]", metavar="INT"),
+  make_option(c("--output_table"), type="character", default=NULL,
+              help="Optional output table file for variant positions used in plotting (tab-delimited: CHROM POS)", metavar="FILE")
 )
 
 opt_parser <- OptionParser(option_list=option_list,
@@ -430,6 +432,14 @@ plot_data$POS_scaled <- plot_data$POS / opt$unit
 
 # Filter for variants only
 variant_data <- plot_data[plot_data$is_variant, ]
+
+# Write output table if requested
+if (!is.null(opt$output_table)) {
+  cat("Writing variant position table to:", opt$output_table, "\n")
+  write.table(variant_data[, c("CHROM", "POS")], file=opt$output_table,
+              sep="\t", quote=FALSE, row.names=FALSE, col.names=TRUE)
+  cat("Variant position table saved:", nrow(variant_data), "positions written\n")
+}
 
 # Create plot
 cat("\nGenerating plot...\n")
