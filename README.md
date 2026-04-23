@@ -82,6 +82,7 @@ Rscript vcf_difplot.R [options]
   - Only positions where baseline is homozygous (e.g., A/A, G|G) will be included
 - `--copHetcheck`: Check if comparison sample is homozygous; ignore heterozygous positions
   - Only positions where comparison is homozygous (e.g., A/A, G|G) will be included
+- `--output_table FILE`: Write the final variant positions used for plotting to a tab-delimited file (columns: CHROM, POS)
 
 ### Visualization Customization
 
@@ -101,111 +102,31 @@ The script properly handles GATK VariantsToTable genotype formats:
 - Can optionally filter for homozygous positions only
 - **Smart chromosome sorting**: Chromosomes are sorted in natural numerical order (Chr1, Chr2, ..., Chr10, Chr11) instead of alphabetical order
 
-## Examples
+## Example
 
-### Example 1: Using Sample Names
-
-```bash
-Rscript vcf_difplot.R \
-  -i variants.table \
-  -b sample1 \
-  -c sample2 \
-  -o comparison.pdf
-```
-
-### Example 2: Using Column Positions
+The following command shows all available parameters. Parameters marked with `# optional` can be omitted; the rest are required.
 
 ```bash
 Rscript vcf_difplot.R \
-  -i variants.table \
-  -B 1 \
-  -C 2 \
-  -o comparison.pdf
+  -i variants.table \          # required: input tab-delimited file
+  -b sample1 \                 # required: baseline sample name (or use -B for column index)
+  -c sample2 \                 # required: comparison sample name (or use -C for column index)
+  -o comparison.pdf \          # optional: output plot file (default: variant_plot.pdf)
+  -l chr_lengths.txt \         # optional: chromosome length file; auto-detected from data if omitted
+  -u 1000000 \                 # optional: position unit divisor, e.g. 1e6 = Mb (default: 1e6)
+  -t 4 \                       # optional: threads for parallel processing (default: 1)
+  --baseHetcheck \             # optional: skip heterozygous positions in baseline sample
+  --copHetcheck \              # optional: skip heterozygous positions in comparison sample
+  --segmentColor red \         # optional: color for variant segments (default: red)
+  --segmentSize 0.5 \          # optional: thickness of variant segments (default: 0.5)
+  --chrBorderColor black \     # optional: color for chromosome borders (default: black)
+  --chrBorderSize 0.3 \        # optional: thickness of chromosome borders (default: 0.3)
+  --output_table positions.tsv # optional: write final variant positions (CHROM + POS) to this file
 ```
 
-### Example 3: With Chromosome Length File and Custom Unit (kb)
-
-```bash
-Rscript vcf_difplot.R \
-  -i variants.table \
-  -b sample1 \
-  -c sample2 \
-  -l chr_lengths.txt \
-  -u 1000 \
-  -o comparison.pdf
-```
-
-This example uses kilobase (kb) units instead of the default megabase (Mb) units.
-
-### Example 4: Filter for Homozygous Baseline Positions
-
-```bash
-Rscript vcf_difplot.R \
-  -i variants.table \
-  -b sample1 \
-  -c sample2 \
-  --baseHetcheck \
-  -o homozygous_baseline.pdf
-```
-
-This example only includes positions where the baseline sample is homozygous (e.g., A/A, G|G).
-
-### Example 5: Filter for Both Homozygous Positions
-
-```bash
-Rscript vcf_difplot.R \
-  -i variants.table \
-  -b sample1 \
-  -c sample2 \
-  --baseHetcheck \
-  --copHetcheck \
-  -o both_homozygous.pdf
-```
-
-This example only includes positions where both samples are homozygous.
-
-### Example 6: Custom Colors and Line Thickness
-
-```bash
-Rscript vcf_difplot.R \
-  -i variants.table \
-  -b sample1 \
-  -c sample2 \
-  --segmentColor blue \
-  --segmentSize 1.0 \
-  --chrBorderColor darkgray \
-  --chrBorderSize 0.5 \
-  -o custom_colors.pdf
-```
-
-This example customizes the appearance with blue variant segments (thicker) and dark gray chromosome borders.
-
-### Example 7: Using Hex Color Codes
-
-```bash
-Rscript vcf_difplot.R \
-  -i variants.table \
-  -b sample1 \
-  -c sample2 \
-  --segmentColor "#FF5733" \
-  --segmentSize 0.8 \
-  -o hex_colors.pdf
-```
-
-This example uses a hex color code for the variant segments.
-
-### Example 8: Using Parallel Processing for Large Datasets
-
-```bash
-Rscript vcf_difplot.R \
-  -i large_variants.table \
-  -b sample1 \
-  -c sample2 \
-  -t 12 \
-  -o fast_comparison.pdf
-```
-
-This example uses 12 threads for parallel processing, significantly speeding up analysis of large datasets.
+> **Note on sample selection:** For each sample (baseline and comparison) you must use either the
+> name flag (`-b`/`-c`) or the 1-based column-index flag (`-B`/`-C`). If both are given for the
+> same sample, the name takes precedence.
 
 ### Chromosome Length File Format
 
