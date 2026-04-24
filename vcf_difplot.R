@@ -17,6 +17,8 @@ MAX_PLOT_HEIGHT_IN <- 50 # Maximum plot height in inches to prevent rendering cr
 
 # Define command-line options
 option_list <- list(
+  make_option(c("-I", "--interactive"), action="store_true", default=FALSE,
+              help="Enter interactive mode: prompts for each parameter with descriptions (all other flags are ignored)"),
   make_option(c("-i", "--input"), type="character", default=NULL,
               help="Input tab-delimited file (required)", metavar="FILE"),
   make_option(c("-o", "--output"), type="character", default="variant_plot.pdf",
@@ -54,6 +56,230 @@ option_list <- list(
 opt_parser <- OptionParser(option_list=option_list,
                           description="\nPlot variant positions from GATK VariantsToTable output\n\nExample usage:\n  Rscript vcf_difplot.R -i input.table -b sample1 -c sample2 -o output.pdf")
 opt <- parse_args(opt_parser)
+
+# ---------------------------------------------------------------------------
+# Interactive mode
+# ---------------------------------------------------------------------------
+# Prompts the user for each parameter with a description.
+# Required items loop until valid input is provided.
+# Optional items accept Enter to keep the default.
+run_interactive_mode <- function() {
+  cat("============================================================\n")
+  cat("  VCF Difplot -- Interactive Parameter Setup\n")
+  cat("  Press Enter to accept the default value shown in [brackets].\n")
+  cat("  Required parameters (*) must receive a non-empty value.\n")
+  cat("============================================================\n\n")
+
+  # Helper: read a line from stdin, trimming whitespace
+  read_line <- function(prompt) {
+    cat(prompt)
+    trimws(readLines(con=stdin(), n=1))
+  }
+
+  # Helper: prompt for a required character/path value; loops until non-empty
+  prompt_required <- function(label, description) {
+    repeat {
+      val <- read_line(paste0("(*) ", label, "\n    ", description, "\n    > "))
+      if (nchar(val) > 0) return(val)
+      cat("    [!] This field is required. Please enter a value.\n")
+    }
+  }
+
+  # Helper: prompt for an optional value; returns default when empty
+  prompt_optional <- function(label, description, default_val) {
+    disp <- if (is.null(default_val)) "none" else as.character(default_val)
+    val <- read_line(paste0("( ) ", label, "\n    ", description,
+                            "\n    [default: ", disp, "] > "))
+    if (nchar(val) == 0) return(default_val)
+    val
+  }
+
+  # Helper: prompt for an optional yes/no (logical) value; default is FALSE
+  prompt_yesno <- function(label, description, default_val = FALSE) {
+    disp <- if (default_val) "yes" else "no"
+    repeat {
+      val <- tolower(read_line(paste0("( ) ", label, "\n    ", description,
+                                      "\n    [default: ", disp, "] (yes/no) > ")))
+      if (nchar(val) == 0) return(default_val)
+      if (val %in% c("y", "yes", "true",  "1")) return(TRUE)
+      if (val %in% c("n", "no",  "false", "0")) return(FALSE)
+      cat("    [!] Please enter yes or no.\n")
+    }
+  }
+
+  # Helper: parse and validate a numeric value from a string
+  parse_numeric_input <- function(s) {
+    v <- suppressWarnings(as.numeric(s))
+    if (is.na(v)) return(NULL)
+    v
+  }
+
+  result <- list(interactive = TRUE)
+
+  # --- Required: input file ---
+  repeat {
+    result$input <- prompt_required(
+      "Input file (-i / --input)  [REQUIRED]",
+      "Tab-delimited file produced by GATK VariantsToTable (must exist)."
+    )
+    if (file.exists(result$input)) break
+    cat("    [!] File not found:", result$input, "-- please try again.\n")
+  }
+
+  # --- Optional: output file ---
+  result$output <- prompt_optional(
+    "Output plot file (-o / --output)",
+    "Path for the output PDF/PNG/JPG plot.",
+    "variant_plot.pdf"
+  )
+
+  # --- Baseline sample (name OR column) ---
+  cat("\n  Baseline sample identification -- provide EITHER a name OR a column number.\n")
+  result$basename <- prompt_optional(
+    "Baseline sample name (-b / --basename)",
+    "Name of the baseline sample as it appears in the column header (e.g. sample1).",
+    NULL
+  )
+  if (is.null(result$basename) || nchar(result$basename) == 0) {
+    result$basename <- NULL
+    repeat {
+      raw <- prompt_optional(
+        "Baseline sample column position (-B / --basecol)",
+        "1-based index of the baseline GT column among all GT columns.",
+        NULL
+      )
+      if (is.null(raw)) {
+        cat("    [!] You must specify either a baseline sample name or column position.\n")
+        next
+      }
+      v <- suppressWarnings(as.integer(raw))
+      if (!is.na(v) && v >= 1) { result$basecol <- v; break }
+      cat("    [!] Please enter a positive integer.\n")
+    }
+  } else {
+    result$basecol <- NULL
+  }
+
+  # --- Comparison sample (name OR column) ---
+  cat("\n  Comparison sample identification -- provide EITHER a name OR a column number.\n")
+  result$copname <- prompt_optional(
+    "Comparison sample name (-c / --copname)",
+    "Name of the comparison sample as it appears in the column header (e.g. sample2).",
+    NULL
+  )
+  if (is.null(result$copname) || nchar(result$copname) == 0) {
+    result$copname <- NULL
+    repeat {
+      raw <- prompt_optional(
+        "Comparison sample column position (-C / --copcol)",
+        "1-based index of the comparison GT column among all GT columns.",
+        NULL
+      )
+      if (is.null(raw)) {
+        cat("    [!] You must specify either a comparison sample name or column position.\n")
+        next
+      }
+      v <- suppressWarnings(as.integer(raw))
+      if (!is.na(v) && v >= 1) { result$copcol <- v; break }
+      cat("    [!] Please enter a positive integer.\n")
+    }
+  } else {
+    result$copcol <- NULL
+  }
+
+  # --- Optional: chromosome length file ---
+  cat("\n")
+  result$chrlength <- prompt_optional(
+    "Chromosome length file (-l / --chrlength)",
+    "Two-column file (CHROM LENGTH). If omitted, max variant position is used per chromosome.",
+    NULL
+  )
+  if (!is.null(result$chrlength) && nchar(result$chrlength) == 0) result$chrlength <- NULL
+
+  # --- Optional: unit ---
+  repeat {
+    raw <- prompt_optional(
+      "Chromosome length unit (-u / --unit)",
+      "Numeric divisor for position axis (e.g. 1e6 = Mb, 1e3 = kb, 1 = bp).",
+      "1e6"
+    )
+    v <- parse_numeric_input(if (is.null(raw)) "1e6" else raw)
+    if (!is.null(v) && v > 0) { result$unit <- v; break }
+    cat("    [!] Please enter a positive number.\n")
+  }
+
+  # --- Optional: homozygosity filters ---
+  cat("\n")
+  result$baseHetcheck <- prompt_yesno(
+    "Baseline homozygosity filter (--baseHetcheck)",
+    "Ignore positions where the baseline genotype is heterozygous.",
+    FALSE
+  )
+  result$copHetcheck <- prompt_yesno(
+    "Comparison homozygosity filter (--copHetcheck)",
+    "Ignore positions where the comparison genotype is heterozygous.",
+    FALSE
+  )
+
+  # --- Optional: plot aesthetics ---
+  cat("\n  Plot aesthetics (press Enter to keep defaults):\n")
+  result$segmentColor <- prompt_optional(
+    "Variant segment color (--segmentColor)",
+    "Any R color name or hex code for variant position marks.",
+    "red"
+  )
+
+  repeat {
+    raw <- prompt_optional(
+      "Variant segment thickness (--segmentSize)",
+      "Line width for variant marks (e.g. 0.5).",
+      "0.5"
+    )
+    v <- parse_numeric_input(if (is.null(raw)) "0.5" else raw)
+    if (!is.null(v) && v > 0) { result$segmentSize <- v; break }
+    cat("    [!] Please enter a positive number.\n")
+  }
+
+  result$chrBorderColor <- prompt_optional(
+    "Chromosome border color (--chrBorderColor)",
+    "Any R color name or hex code for chromosome outlines.",
+    "black"
+  )
+
+  repeat {
+    raw <- prompt_optional(
+      "Chromosome border thickness (--chrBorderSize)",
+      "Line width for chromosome outlines (e.g. 0.3).",
+      "0.3"
+    )
+    v <- parse_numeric_input(if (is.null(raw)) "0.3" else raw)
+    if (!is.null(v) && v > 0) { result$chrBorderSize <- v; break }
+    cat("    [!] Please enter a positive number.\n")
+  }
+
+  # --- Optional: output table ---
+  cat("\n")
+  result$output_table <- prompt_optional(
+    "Variant position output table (--output_table)",
+    "Optional path to write a tab-delimited CHROM/POS table of plotted variants.",
+    NULL
+  )
+  if (!is.null(result$output_table) && nchar(result$output_table) == 0) result$output_table <- NULL
+
+  # Deprecated field kept for compatibility
+  result$threads <- 1L
+
+  cat("\n============================================================\n")
+  cat("  Parameters confirmed. Starting analysis...\n")
+  cat("============================================================\n\n")
+
+  result
+}
+
+# If --interactive (-I) was requested, replace opt with interactively gathered values
+if (isTRUE(opt$interactive)) {
+  opt <- run_interactive_mode()
+}
 
 # Check required arguments
 if (is.null(opt$input)) {
