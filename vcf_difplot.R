@@ -70,10 +70,24 @@ run_interactive_mode <- function() {
   cat("  Required parameters (*) must receive a non-empty value.\n")
   cat("============================================================\n\n")
 
-  # Helper: read a line from stdin, trimming whitespace
+  # Helper: read a line from the real terminal (not the script's stdin pipe).
+  # In Rscript, stdin() is connected to the script source, so we open /dev/tty
+  # (Unix) or "CON" (Windows) directly to reach the user's keyboard.
+  tty_path <- if (.Platform$OS.type == "windows") "CON" else "/dev/tty"
+  tty_con  <- tryCatch(
+    file(tty_path, open = "r"),
+    error = function(e) {
+      stop("Cannot open terminal for interactive input (", tty_path, "): ", e$message,
+           call. = FALSE)
+    }
+  )
+  on.exit(try(close(tty_con), silent = TRUE), add = TRUE)
+
   read_line <- function(prompt) {
     cat(prompt)
-    trimws(readLines(con=stdin(), n=1))
+    line <- readLines(con = tty_con, n = 1, warn = FALSE)
+    if (length(line) == 0L) return("")   # EOF / Ctrl-D
+    trimws(line)
   }
 
   # Helper: prompt for a required character/path value; loops until non-empty
