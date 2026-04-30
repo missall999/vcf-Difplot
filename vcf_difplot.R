@@ -70,23 +70,17 @@ run_interactive_mode <- function() {
   cat("  Required parameters (*) must receive a non-empty value.\n")
   cat("============================================================\n\n")
 
-  # Helper: read a line from the real terminal (not the script's stdin pipe).
-  # In Rscript, stdin() is connected to the script source, so we open /dev/tty
-  # (Unix) or "CON" (Windows) directly to reach the user's keyboard.
-  tty_path <- if (.Platform$OS.type == "windows") "CON" else "/dev/tty"
-  tty_con  <- tryCatch(
-    file(tty_path, open = "r"),
-    error = function(e) {
-      stop("Cannot open terminal for interactive input (", tty_path, "): ", e$message,
-           call. = FALSE)
-    }
-  )
-  on.exit(try(close(tty_con), silent = TRUE), add = TRUE)
+  # Helper: read a line from the user's keyboard.
+  # In Rscript the script is passed as a filename argument, so fd 0 (stdin)
+  # is the user's terminal — including SSH sessions.  file("stdin") opens fd 0
+  # directly and works everywhere (local, SSH, tmux, …).
+  stdin_con <- file("stdin", open = "r")
+  on.exit(try(close(stdin_con), silent = TRUE), add = TRUE)
 
   read_line <- function(prompt) {
     cat(prompt)
     flush(stdout())  # ensure prompt is written before blocking on input
-    line <- readLines(con = tty_con, n = 1, warn = FALSE)
+    line <- readLines(con = stdin_con, n = 1, warn = FALSE)
     if (length(line) == 0L) return("")   # EOF / Ctrl-D
     trimws(line)
   }
