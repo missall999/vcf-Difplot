@@ -126,13 +126,30 @@ run_interactive_mode <- function() {
   result <- list(interactive = TRUE)
 
   # --- Required: input file ---
+  available_samples <- character(0)   # sample names read from file header
   repeat {
     result$input <- prompt_required(
       "Input file (-i / --input)  [REQUIRED]",
       "Tab-delimited file produced by GATK VariantsToTable (must exist)."
     )
-    if (file.exists(result$input)) break
-    cat("    [!] File not found:", result$input, "-- please try again.\n")
+    if (!file.exists(result$input)) {
+      cat("    [!] File not found:", result$input, "-- please try again.\n")
+      next
+    }
+    # Read header line only to extract sample names
+    hdr <- tryCatch(
+      scan(result$input, what = "", nlines = 1, sep = "\t", quiet = TRUE),
+      error = function(e) character(0)
+    )
+    gt_hdr <- grep("\\.GT$", hdr, value = TRUE)
+    if (length(gt_hdr) == 0L) {
+      cat("    [!] No GT columns found in that file -- please check the file and try again.\n")
+      next
+    }
+    available_samples <- sub("\\.GT$", "", gt_hdr)
+    cat("    [i] Found", length(available_samples), "sample(s):",
+        paste(available_samples, collapse = ", "), "\n")
+    break
   }
 
   # --- Optional: output file ---
@@ -143,10 +160,15 @@ run_interactive_mode <- function() {
   )
 
   # --- Baseline sample (name OR column) ---
+  sample_hint <- if (length(available_samples) > 0L)
+    paste0("Available samples: ", paste(available_samples, collapse = ", "), ".")
+  else
+    "Name of the baseline sample as it appears in the column header (e.g. sample1)."
+
   cat("\n  Baseline sample identification -- provide EITHER a name OR a column number.\n")
   result$basename <- prompt_optional(
     "Baseline sample name (-b / --basename)",
-    "Name of the baseline sample as it appears in the column header (e.g. sample1).",
+    sample_hint,
     NULL
   )
   if (is.null(result$basename) || nchar(result$basename) == 0) {
@@ -173,7 +195,7 @@ run_interactive_mode <- function() {
   cat("\n  Comparison sample identification -- provide EITHER a name OR a column number.\n")
   result$copname <- prompt_optional(
     "Comparison sample name (-c / --copname)",
-    "Name of the comparison sample as it appears in the column header (e.g. sample2).",
+    sample_hint,
     NULL
   )
   if (is.null(result$copname) || nchar(result$copname) == 0) {
