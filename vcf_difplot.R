@@ -85,6 +85,7 @@ run_interactive_mode <- function() {
 
   read_line <- function(prompt) {
     cat(prompt)
+    flush(stdout())  # ensure prompt is written before blocking on input
     line <- readLines(con = tty_con, n = 1, warn = FALSE)
     if (length(line) == 0L) return("")   # EOF / Ctrl-D
     trimws(line)
