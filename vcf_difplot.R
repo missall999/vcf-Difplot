@@ -743,9 +743,17 @@ if (isTRUE(opt$CMplot)) {
   })
 
   # Build a data frame in CMplot format: SNP, Chromosome, Position
+  # Normalize chromosome names: CMplot adds its own "Chr" prefix when rendering,
+  # so strip any existing "chr"/"Chr"/"CHR" prefix from the CHROM column first.
+  # Numeric chromosomes are stored as integers so CMplot sorts them correctly
+  # (1, 2, … 10, 11 …) rather than alphabetically ("1","10","11","2"…).
+  cmplot_chrom_raw <- sub("^[Cc][Hh][Rr]", "", variant_data$CHROM)
+  cmplot_chrom_num  <- suppressWarnings(as.integer(cmplot_chrom_raw))
+  cmplot_chrom <- ifelse(!is.na(cmplot_chrom_num), cmplot_chrom_num, cmplot_chrom_raw)
+
   cmplot_data <- data.frame(
     SNP        = paste(variant_data$CHROM, variant_data$POS, sep = "_"),
-    Chromosome = variant_data$CHROM,
+    Chromosome = cmplot_chrom,
     Position   = variant_data$POS,
     stringsAsFactors = FALSE
   )
