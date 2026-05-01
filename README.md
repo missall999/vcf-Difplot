@@ -86,6 +86,9 @@ Rscript vcf_difplot.R [options]
 - `--copHetcheck`: Check if comparison sample is homozygous; ignore heterozygous positions
   - Only positions where comparison is homozygous (e.g., A/A, G|G) will be included
 - `--output_table FILE`: Write the final variant positions used for plotting to a tab-delimited file (columns: CHROM, POS)
+- `--exclude_chr CHROMS`: Comma-separated list of chromosome names to exclude from display (e.g. `ChrUn,ChrM`)
+  - Chromosomes are matched exactly against the CHROM column in the input data
+  - Excluded chromosomes are removed from all plots and analyses
 
 ### CMplot Mode
 
