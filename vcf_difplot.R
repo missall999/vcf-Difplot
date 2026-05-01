@@ -50,7 +50,21 @@ option_list <- list(
   make_option(c("-t", "--threads"), type="integer", default=1,
               help="[DEPRECATED] Ignored; vectorized processing is used instead", metavar="INT"),
   make_option(c("--output_table"), type="character", default=NULL,
-              help="Optional output table file for variant positions used in plotting (tab-delimited: CHROM POS)", metavar="FILE")
+              help="Optional output table file for variant positions used in plotting (tab-delimited: CHROM POS)", metavar="FILE"),
+  make_option(c("--CMplot"), action="store_true", default=FALSE,
+              help="Use CMplot R package for density plotting instead of ggplot2"),
+  make_option(c("--CMplot_bin_size"), type="numeric", default=1e6,
+              help="Bin size (bp) for CMplot density calculation [default=%default]", metavar="NUM"),
+  make_option(c("--CMplot_col"), type="character", default="darkgreen,yellow,red",
+              help="Comma-separated colors for CMplot density gradient [default=%default]", metavar="COLORS"),
+  make_option(c("--CMplot_dpi"), type="integer", default=300,
+              help="DPI for CMplot raster output [default=%default]", metavar="INT"),
+  make_option(c("--CMplot_width"), type="numeric", default=9,
+              help="Width in inches for CMplot output [default=%default]", metavar="NUM"),
+  make_option(c("--CMplot_height"), type="numeric", default=6,
+              help="Height in inches for CMplot output [default=%default]", metavar="NUM"),
+  make_option(c("--CMplot_main"), type="character", default="Variant Density Plot",
+              help="Title for CMplot density plot [default=%default]", metavar="TITLE")
 )
 
 opt_parser <- OptionParser(option_list=option_list,
@@ -326,6 +340,65 @@ run_interactive_mode <- function() {
   )
   if (!is.null(result$output_table) && nchar(result$output_table) == 0) result$output_table <- NULL
 
+  # --- Optional: CMplot ---
+  cat("\n")
+  result$CMplot <- prompt_yesno(
+    "Use CMplot for density plot (--CMplot)",
+    "Use the CMplot R package to draw a density plot instead of ggplot2.",
+    FALSE
+  )
+  if (isTRUE(result$CMplot)) {
+    repeat {
+      raw <- prompt_optional(
+        "CMplot bin size (--CMplot_bin_size)",
+        "Genomic window size in bp for density calculation (e.g. 1e6).",
+        "1e6"
+      )
+      v <- parse_numeric_input(if (is.null(raw)) "1e6" else raw)
+      if (!is.null(v) && v > 0) { result$CMplot_bin_size <- v; break }
+      cat("    [!] Please enter a positive number.\n")
+    }
+    result$CMplot_col <- prompt_optional(
+      "CMplot density colors (--CMplot_col)",
+      "Comma-separated color names for the density gradient (low to high).",
+      "darkgreen,yellow,red"
+    )
+    repeat {
+      raw <- prompt_optional(
+        "CMplot DPI (--CMplot_dpi)",
+        "Resolution for raster output files (e.g. 300).",
+        "300"
+      )
+      v <- suppressWarnings(as.integer(raw))
+      if (!is.na(v) && v > 0) { result$CMplot_dpi <- v; break }
+      cat("    [!] Please enter a positive integer.\n")
+    }
+    repeat {
+      raw <- prompt_optional("CMplot width (--CMplot_width)", "Plot width in inches.", "9")
+      v <- parse_numeric_input(if (is.null(raw)) "9" else raw)
+      if (!is.null(v) && v > 0) { result$CMplot_width <- v; break }
+      cat("    [!] Please enter a positive number.\n")
+    }
+    repeat {
+      raw <- prompt_optional("CMplot height (--CMplot_height)", "Plot height in inches.", "6")
+      v <- parse_numeric_input(if (is.null(raw)) "6" else raw)
+      if (!is.null(v) && v > 0) { result$CMplot_height <- v; break }
+      cat("    [!] Please enter a positive number.\n")
+    }
+    result$CMplot_main <- prompt_optional(
+      "CMplot title (--CMplot_main)",
+      "Title displayed on the density plot.",
+      "Variant Density Plot"
+    )
+  } else {
+    result$CMplot_bin_size <- 1e6
+    result$CMplot_col      <- "darkgreen,yellow,red"
+    result$CMplot_dpi      <- 300L
+    result$CMplot_width    <- 9
+    result$CMplot_height   <- 6
+    result$CMplot_main     <- "Variant Density Plot"
+  }
+
   # Deprecated field kept for compatibility
   result$threads <- 1L
 
@@ -355,6 +428,15 @@ run_interactive_mode <- function() {
   cmd <- c(cmd, "--chrBorderColor", shQuote(result$chrBorderColor))
   cmd <- c(cmd, "--chrBorderSize",  result$chrBorderSize)
   if (!is.null(result$output_table)) cmd <- c(cmd, "--output_table", shQuote(result$output_table))
+  if (isTRUE(result$CMplot)) {
+    cmd <- c(cmd, "--CMplot")
+    cmd <- c(cmd, "--CMplot_bin_size", result$CMplot_bin_size)
+    cmd <- c(cmd, "--CMplot_col",      shQuote(result$CMplot_col))
+    cmd <- c(cmd, "--CMplot_dpi",      result$CMplot_dpi)
+    cmd <- c(cmd, "--CMplot_width",    result$CMplot_width)
+    cmd <- c(cmd, "--CMplot_height",   result$CMplot_height)
+    cmd <- c(cmd, "--CMplot_main",     shQuote(result$CMplot_main))
+  }
 
   cat("\n============================================================\n")
   cat("  Parameters confirmed. Starting analysis...\n")
@@ -650,85 +732,148 @@ if (nrow(variant_data) == 0) {
   message("Warning: No variant positions found. Generating empty chromosome frame plot.")
 }
 
-# Format unit label for better readability
-unit_label <- if (opt$unit == 1e6) {
-  "Mb"
-} else if (opt$unit == 1e3) {
-  "kb"
-} else if (opt$unit == 1) {
-  "bp"
+if (isTRUE(opt$CMplot)) {
+  # ---------------------------------------------------------------------------
+  # CMplot density plot branch
+  # ---------------------------------------------------------------------------
+  suppressPackageStartupMessages(library(CMplot))
+
+  # Build a data frame in CMplot format: SNP, Chromosome, Position
+  cmplot_data <- data.frame(
+    SNP        = paste(variant_data$CHROM, variant_data$POS, sep = "_"),
+    Chromosome = variant_data$CHROM,
+    Position   = variant_data$POS,
+    stringsAsFactors = FALSE
+  )
+
+  # Parse comma-separated color string into a character vector
+  chr_den_col <- trimws(strsplit(opt$CMplot_col, ",")[[1]])
+
+  # Determine output format from file extension
+  output_ext <- tolower(tools::file_ext(opt$output))
+  if (!output_ext %in% c("pdf", "png", "jpg", "jpeg")) {
+    warning(paste("Unsupported output format:", output_ext, ". Using pdf instead."))
+    output_ext <- "pdf"
+    opt$output <- paste0(tools::file_path_sans_ext(opt$output), ".pdf")
+  }
+  # CMplot uses "jpg" not "jpeg"
+  if (output_ext == "jpeg") output_ext <- "jpg"
+
+  # CMplot saves to the working directory; temporarily switch to the output dir
+  output_dir  <- dirname(opt$output)
+  output_base <- tools::file_path_sans_ext(basename(opt$output))
+  if (!nzchar(output_dir)) output_dir <- "."
+
+  old_wd <- getwd()
+  tryCatch(setwd(output_dir), error = function(e)
+    stop(paste("Cannot change to output directory:", output_dir), call. = FALSE))
+  on.exit(setwd(old_wd), add = TRUE)
+
+  message("Saving CMplot density plot to directory: ", normalizePath(output_dir))
+  message("Output file name prefix: ", output_base)
+
+  CMplot(cmplot_data,
+         plot.type    = "d",
+         bin.size     = opt$CMplot_bin_size,
+         chr.den.col  = chr_den_col,
+         file         = output_ext,
+         file.name    = output_base,
+         dpi          = opt$CMplot_dpi,
+         main         = opt$CMplot_main,
+         file.output  = TRUE,
+         verbose      = TRUE,
+         width        = opt$CMplot_width,
+         height       = opt$CMplot_height)
+
+  setwd(old_wd)
+  message("\nDone! CMplot output saved.")
+  message("Total variants used for density plot: ", nrow(variant_data))
+
 } else {
-  paste0(format(opt$unit, scientific = FALSE), " bp")
+  # ---------------------------------------------------------------------------
+  # Default ggplot2 plotting branch
+  # ---------------------------------------------------------------------------
+
+  # Format unit label for better readability
+  unit_label <- if (opt$unit == 1e6) {
+    "Mb"
+  } else if (opt$unit == 1e3) {
+    "kb"
+  } else if (opt$unit == 1) {
+    "bp"
+  } else {
+    paste0(format(opt$unit, scientific = FALSE), " bp")
+  }
+
+  # Determine the correct parameter name for line width based on ggplot2 version
+  # ggplot2 >= 3.4.0 uses linewidth, older versions use size
+  ggplot2_version <- packageVersion("ggplot2")
+  use_linewidth <- ggplot2_version >= "3.4.0"
+
+  # Build the plot with version-appropriate parameters
+  if (use_linewidth) {
+    p <- ggplot() +
+      # Draw chromosome rectangles
+      geom_rect(data=chr_info, 
+                aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
+                fill="lightgray", color=opt$chrBorderColor, linewidth=opt$chrBorderSize) +
+      # Draw variant positions as vertical segments
+      geom_segment(data=variant_data,
+                   aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
+                   color=opt$segmentColor, linewidth=opt$segmentSize, alpha=0.6) +
+      scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
+      labs(x=paste0("Position (", unit_label, ")"),
+           y="Chromosome",
+           title="Variant Position Plot",
+           subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
+      theme_bw() +
+      theme(panel.grid.minor = element_blank(),
+            panel.grid.major.y = element_blank(),
+            axis.text.y = element_text(size=10))
+  } else {
+    p <- ggplot() +
+      # Draw chromosome rectangles
+      geom_rect(data=chr_info, 
+                aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
+                fill="lightgray", color=opt$chrBorderColor, size=opt$chrBorderSize) +
+      # Draw variant positions as vertical segments
+      geom_segment(data=variant_data,
+                   aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
+                   color=opt$segmentColor, size=opt$segmentSize, alpha=0.6) +
+      scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
+      labs(x=paste0("Position (", unit_label, ")"),
+           y="Chromosome",
+           title="Variant Position Plot",
+           subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
+      theme_bw() +
+      theme(panel.grid.minor = element_blank(),
+            panel.grid.major.y = element_blank(),
+            axis.text.y = element_text(size=10))
+  }
+
+  # Save plot
+  message("Saving plot to: ", opt$output)
+
+  # Determine output format based on file extension
+  output_ext <- tolower(tools::file_ext(opt$output))
+  plot_height_inches <- min(MAX_PLOT_HEIGHT_IN, max(4, nrow(chr_info) * 0.5))
+  plot_height_pixels <- min(MAX_PLOT_HEIGHT_IN * 100L, max(400L, nrow(chr_info) * 50L))
+  if (output_ext == "pdf") {
+    pdf(opt$output, width=12, height=plot_height_inches)
+  } else if (output_ext == "png") {
+    png(opt$output, width=1200, height=plot_height_pixels, res=100)
+  } else if (output_ext %in% c("jpg", "jpeg")) {
+    jpeg(opt$output, width=1200, height=plot_height_pixels, res=100)
+  } else {
+    # Default to PDF
+    warning(paste("Unsupported output format:", output_ext, ". Using PDF instead."))
+    opt$output <- sub(paste0("\\.", output_ext, "$"), ".pdf", opt$output)
+    pdf(opt$output, width=12, height=plot_height_inches)
+  }
+
+  print(p)
+  if (dev.cur() > 1) dev.off()
+
+  message("\nDone! Plot saved to: ", opt$output)
+  message("Total variants plotted: ", nrow(variant_data))
 }
-
-# Determine the correct parameter name for line width based on ggplot2 version
-# ggplot2 >= 3.4.0 uses linewidth, older versions use size
-ggplot2_version <- packageVersion("ggplot2")
-use_linewidth <- ggplot2_version >= "3.4.0"
-
-# Build the plot with version-appropriate parameters
-if (use_linewidth) {
-  p <- ggplot() +
-    # Draw chromosome rectangles
-    geom_rect(data=chr_info, 
-              aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
-              fill="lightgray", color=opt$chrBorderColor, linewidth=opt$chrBorderSize) +
-    # Draw variant positions as vertical segments
-    geom_segment(data=variant_data,
-                 aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
-                 color=opt$segmentColor, linewidth=opt$segmentSize, alpha=0.6) +
-    scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
-    labs(x=paste0("Position (", unit_label, ")"),
-         y="Chromosome",
-         title="Variant Position Plot",
-         subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
-    theme_bw() +
-    theme(panel.grid.minor = element_blank(),
-          panel.grid.major.y = element_blank(),
-          axis.text.y = element_text(size=10))
-} else {
-  p <- ggplot() +
-    # Draw chromosome rectangles
-    geom_rect(data=chr_info, 
-              aes(xmin=0, xmax=LENGTH_scaled, ymin=chr_order-0.4, ymax=chr_order+0.4),
-              fill="lightgray", color=opt$chrBorderColor, size=opt$chrBorderSize) +
-    # Draw variant positions as vertical segments
-    geom_segment(data=variant_data,
-                 aes(x=POS_scaled, xend=POS_scaled, y=chr_order-0.4, yend=chr_order+0.4),
-                 color=opt$segmentColor, size=opt$segmentSize, alpha=0.6) +
-    scale_y_continuous(breaks=chr_info$chr_order, labels=chr_info$CHROM) +
-    labs(x=paste0("Position (", unit_label, ")"),
-         y="Chromosome",
-         title="Variant Position Plot",
-         subtitle=paste("Comparing", sub("\\.GT$", "", base_col), "vs", sub("\\.GT$", "", comp_col))) +
-    theme_bw() +
-    theme(panel.grid.minor = element_blank(),
-          panel.grid.major.y = element_blank(),
-          axis.text.y = element_text(size=10))
-}
-
-# Save plot
-message("Saving plot to: ", opt$output)
-
-# Determine output format based on file extension
-output_ext <- tolower(tools::file_ext(opt$output))
-plot_height_inches <- min(MAX_PLOT_HEIGHT_IN, max(4, nrow(chr_info) * 0.5))
-plot_height_pixels <- min(MAX_PLOT_HEIGHT_IN * 100L, max(400L, nrow(chr_info) * 50L))
-if (output_ext == "pdf") {
-  pdf(opt$output, width=12, height=plot_height_inches)
-} else if (output_ext == "png") {
-  png(opt$output, width=1200, height=plot_height_pixels, res=100)
-} else if (output_ext %in% c("jpg", "jpeg")) {
-  jpeg(opt$output, width=1200, height=plot_height_pixels, res=100)
-} else {
-  # Default to PDF
-  warning(paste("Unsupported output format:", output_ext, ". Using PDF instead."))
-  opt$output <- sub(paste0("\\.", output_ext, "$"), ".pdf", opt$output)
-  pdf(opt$output, width=12, height=plot_height_inches)
-}
-
-print(p)
-if (dev.cur() > 1) dev.off()
-
-message("\nDone! Plot saved to: ", opt$output)
-message("Total variants plotted: ", nrow(variant_data))

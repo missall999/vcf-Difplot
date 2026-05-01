@@ -12,6 +12,7 @@ This tool reads a tab-delimited file converted from VCF format and creates visua
 - R packages:
   - `ggplot2`
   - `optparse`
+  - `CMplot` (optional, only required when `--CMplot` is used)
 - GATK (for converting VCF to tab-delimited format)
 
 ## Installation
@@ -20,6 +21,8 @@ Install required R packages:
 
 ```r
 install.packages(c("ggplot2", "optparse"))
+# Optional: for CMplot mode
+install.packages("CMplot")
 ```
 
 ## Workflow
@@ -84,6 +87,18 @@ Rscript vcf_difplot.R [options]
   - Only positions where comparison is homozygous (e.g., A/A, G|G) will be included
 - `--output_table FILE`: Write the final variant positions used for plotting to a tab-delimited file (columns: CHROM, POS)
 
+### CMplot Mode
+
+- `--CMplot`: Use the [CMplot](https://github.com/YinLiLin/CMplot) R package to draw a density plot instead of ggplot2
+  - CMplot must be installed: `install.packages("CMplot")`
+  - When enabled, the output file name and format are controlled by `-o` (e.g., `-o output.jpg`)
+- `--CMplot_bin_size NUM`: Genomic window size in bp for density calculation (default: `1e6`)
+- `--CMplot_col COLORS`: Comma-separated color names for the density gradient, from low to high density (default: `darkgreen,yellow,red`)
+- `--CMplot_dpi INT`: Resolution for raster output files (default: `300`)
+- `--CMplot_width NUM`: Plot width in inches (default: `9`)
+- `--CMplot_height NUM`: Plot height in inches (default: `6`)
+- `--CMplot_main TITLE`: Title displayed on the density plot (default: `Variant Density Plot`)
+
 ### Visualization Customization
 
 - `--segmentColor COLOR`: Color for variant position segments (default: `red`)
@@ -122,6 +137,23 @@ Rscript vcf_difplot.R \
   --chrBorderColor black \     # optional: color for chromosome borders (default: black)
   --chrBorderSize 0.3 \        # optional: thickness of chromosome borders (default: 0.3)
   --output_table positions.tsv # optional: write final variant positions (CHROM + POS) to this file
+```
+
+To use CMplot for density plotting instead of ggplot2:
+
+```bash
+Rscript vcf_difplot.R \
+  -i variants.table \
+  -b sample1 \
+  -c sample2 \
+  -o comparison.jpg \          # output format is derived from the extension (pdf/png/jpg)
+  --CMplot \                   # enable CMplot density plot mode
+  --CMplot_bin_size 1e6 \      # optional: genomic window size in bp (default: 1e6)
+  --CMplot_col "darkgreen,yellow,red" \  # optional: density color gradient
+  --CMplot_dpi 300 \           # optional: resolution for raster output (default: 300)
+  --CMplot_width 9 \           # optional: plot width in inches (default: 9)
+  --CMplot_height 6 \          # optional: plot height in inches (default: 6)
+  --CMplot_main "My Title"     # optional: plot title
 ```
 
 > **Note on sample selection:** For each sample (baseline and comparison) you must use either the
