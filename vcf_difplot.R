@@ -70,28 +70,42 @@ run_interactive_mode <- function() {
   cat("  Required parameters (*) must receive a non-empty value.\n")
   cat("============================================================\n\n")
 
-  # Helper: read a line from the user's keyboard.
-  # In Rscript the script is passed as a filename argument, so fd 0 (stdin)
-  # is the user's terminal — including SSH sessions.  file("stdin") opens fd 0
-  # directly and works everywhere (local, SSH, tmux, …).
-  stdin_con <- file("stdin", open = "r")
-  on.exit(try(close(stdin_con), silent = TRUE), add = TRUE)
-
+  # Helper: read a line from the user's keyboard using bash's "read -e", which
+  # enables GNU readline editing including Tab file-path completion, arrow-key
+  # history navigation, and Ctrl+C / Ctrl+D exit handling.
+  #
+  # The multi-line label/description is printed via cat() first; only the
+  # trailing "> " prompt is handled by bash so that readline knows where to
+  # draw the cursor.  The user's input is captured through a temp file so that
+  # R's stdout pipe is not disturbed.
   read_line <- function(prompt) {
-    cat(prompt)
-    flush(stdout())  # ensure prompt is written before blocking on input
-    line <- tryCatch(
-      readLines(con = stdin_con, n = 1, warn = FALSE),
-      interrupt = function(e) {
-        cat("\n\n[!] Interrupted by user. Exiting.\n")
-        quit(save = "no", status = 1, runLast = FALSE)
-      }
+    # Split prompt: print everything up to (not including) the final "> "
+    # via cat, then let bash's "read -e" display "    > " itself.
+    prompt_display <- sub("    > $", "", prompt)
+    cat(prompt_display)
+    flush(stdout())
+
+    tmp <- tempfile(fileext = ".readline")
+    on.exit(unlink(tmp), add = TRUE)
+
+    ret <- system(
+      sprintf("bash -c %s",
+        shQuote(paste0(
+          "read -e -r -p '    > ' _rl_input 2>/dev/tty",
+          " && printf '%s\\n' \"$_rl_input\" > ", shQuote(tmp)
+        ))
+      ),
+      wait = TRUE
     )
-    if (length(line) == 0L) {   # EOF (Ctrl-D) — treat as exit
-      cat("\n[!] EOF reached. Exiting.\n")
-      quit(save = "no", status = 1, runLast = FALSE)
+
+    if (ret != 0L) {   # non-zero exit = Ctrl+C or bash not available
+      cat("\n[!] Interrupted by user. Exiting.\n")
+      quit(save = "no", status = 1L, runLast = FALSE)
     }
-    trimws(line)
+    if (!file.exists(tmp)) return("")
+    lines <- readLines(tmp, warn = FALSE)
+    if (length(lines) == 0L) return("")
+    trimws(lines[[1L]])
   }
 
   # Helper: prompt for a required character/path value; loops until non-empty
@@ -315,8 +329,37 @@ run_interactive_mode <- function() {
   # Deprecated field kept for compatibility
   result$threads <- 1L
 
+  # -----------------------------------------------------------------------
+  # Build and display the equivalent non-interactive command so the user
+  # can reproduce this run directly from the command line next time.
+  # -----------------------------------------------------------------------
+  script_path <- tryCatch({
+    args <- commandArgs(trailingOnly = FALSE)
+    file_arg <- grep("^--file=", args, value = TRUE)
+    if (length(file_arg) > 0L) sub("^--file=", "", file_arg[1L]) else "vcf_difplot.R"
+  }, error = function(e) "vcf_difplot.R")
+
+  cmd <- c("Rscript", shQuote(script_path))
+  cmd <- c(cmd, "-i", shQuote(result$input))
+  cmd <- c(cmd, "-o", shQuote(result$output))
+  if (!is.null(result$basename))  cmd <- c(cmd, "-b", shQuote(result$basename))
+  if (!is.null(result$basecol))   cmd <- c(cmd, "-B", result$basecol)
+  if (!is.null(result$copname))   cmd <- c(cmd, "-c", shQuote(result$copname))
+  if (!is.null(result$copcol))    cmd <- c(cmd, "-C", result$copcol)
+  if (!is.null(result$chrlength)) cmd <- c(cmd, "-l", shQuote(result$chrlength))
+  if (!is.null(result$unit))      cmd <- c(cmd, "-u", result$unit)
+  if (isTRUE(result$baseHetcheck)) cmd <- c(cmd, "--baseHetcheck")
+  if (isTRUE(result$copHetcheck))  cmd <- c(cmd, "--copHetcheck")
+  cmd <- c(cmd, "--segmentColor",   shQuote(result$segmentColor))
+  cmd <- c(cmd, "--segmentSize",    result$segmentSize)
+  cmd <- c(cmd, "--chrBorderColor", shQuote(result$chrBorderColor))
+  cmd <- c(cmd, "--chrBorderSize",  result$chrBorderSize)
+  if (!is.null(result$output_table)) cmd <- c(cmd, "--output_table", shQuote(result$output_table))
+
   cat("\n============================================================\n")
   cat("  Parameters confirmed. Starting analysis...\n")
+  cat("  Equivalent command:\n\n")
+  cat("    ", paste(cmd, collapse = " "), "\n")
   cat("============================================================\n\n")
 
   result
