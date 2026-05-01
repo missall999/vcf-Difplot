@@ -81,7 +81,7 @@ run_interactive_mode <- function() {
   read_line <- function(prompt) {
     # Split prompt: print everything up to (not including) the final "> "
     # via cat, then let bash's "read -e" display "    > " itself.
-    prompt_display <- sub("    > $", "", prompt)
+    prompt_display <- sub(" > $", "", prompt)
     cat(prompt_display)
     flush(stdout())
 
