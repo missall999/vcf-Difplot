@@ -80,8 +80,17 @@ run_interactive_mode <- function() {
   read_line <- function(prompt) {
     cat(prompt)
     flush(stdout())  # ensure prompt is written before blocking on input
-    line <- readLines(con = stdin_con, n = 1, warn = FALSE)
-    if (length(line) == 0L) return("")   # EOF / Ctrl-D
+    line <- tryCatch(
+      readLines(con = stdin_con, n = 1, warn = FALSE),
+      interrupt = function(e) {
+        cat("\n\n[!] Interrupted by user. Exiting.\n")
+        quit(save = "no", status = 1, runLast = FALSE)
+      }
+    )
+    if (length(line) == 0L) {   # EOF (Ctrl-D) — treat as exit
+      cat("\n[!] EOF reached. Exiting.\n")
+      quit(save = "no", status = 1, runLast = FALSE)
+    }
     trimws(line)
   }
 
@@ -136,14 +145,20 @@ run_interactive_mode <- function() {
       cat("    [!] File not found:", result$input, "-- please try again.\n")
       next
     }
-    # Read header line only to extract sample names
-    hdr <- tryCatch(
-      scan(result$input, what = "", nlines = 1, sep = "\t", quiet = TRUE),
-      error = function(e) character(0)
-    )
+    # Read header line only to extract sample names; support plain-text and gzip
+    hdr <- tryCatch({
+      is_gz <- grepl("\\.gz$", result$input, ignore.case = TRUE)
+      con   <- if (is_gz) gzfile(result$input, "rt") else file(result$input, "rt")
+      on.exit(try(close(con), silent = TRUE), add = TRUE)
+      h <- readLines(con, n = 1L, warn = FALSE)
+      close(con)
+      if (length(h) == 0L) character(0L) else strsplit(h, "\t")[[1L]]
+    }, error = function(e) character(0L))
     gt_hdr <- grep("\\.GT$", hdr, value = TRUE)
     if (length(gt_hdr) == 0L) {
-      cat("    [!] No GT columns found in that file -- please check the file and try again.\n")
+      cat("    [!] No '.GT' columns found in that file.\n")
+      cat("    [!] The input must be a GATK VariantsToTable output (tab-delimited),\n")
+      cat("    [!] not a raw VCF file. Please try again.\n")
       next
     }
     available_samples <- sub("\\.GT$", "", gt_hdr)
