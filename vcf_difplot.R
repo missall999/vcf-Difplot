@@ -64,7 +64,9 @@ option_list <- list(
   make_option(c("--CMplot_height"), type="numeric", default=6,
               help="Height in inches for CMplot output [default=%default]", metavar="NUM"),
   make_option(c("--CMplot_main"), type="character", default="Variant Density Plot",
-              help="Title for CMplot density plot [default=%default]", metavar="TITLE")
+              help="Title for CMplot density plot [default=%default]", metavar="TITLE"),
+  make_option(c("--exclude_chr"), type="character", default=NULL,
+              help="Comma-separated list of chromosome names to exclude from display (e.g. 'ChrUn,ChrM')", metavar="CHROMS")
 )
 
 opt_parser <- OptionParser(option_list=option_list,
@@ -340,6 +342,15 @@ run_interactive_mode <- function() {
   )
   if (!is.null(result$output_table) && nchar(result$output_table) == 0) result$output_table <- NULL
 
+  # --- Optional: exclude chromosomes ---
+  cat("\n")
+  result$exclude_chr <- prompt_optional(
+    "Exclude chromosomes (--exclude_chr)",
+    "Comma-separated list of chromosome names to exclude from display (e.g. ChrUn,ChrM). Leave blank to include all.",
+    NULL
+  )
+  if (!is.null(result$exclude_chr) && nchar(result$exclude_chr) == 0) result$exclude_chr <- NULL
+
   # --- Optional: CMplot ---
   cat("\n")
   result$CMplot <- prompt_yesno(
@@ -428,6 +439,7 @@ run_interactive_mode <- function() {
   cmd <- c(cmd, "--chrBorderColor", shQuote(result$chrBorderColor))
   cmd <- c(cmd, "--chrBorderSize",  result$chrBorderSize)
   if (!is.null(result$output_table)) cmd <- c(cmd, "--output_table", shQuote(result$output_table))
+  if (!is.null(result$exclude_chr))  cmd <- c(cmd, "--exclude_chr",  shQuote(result$exclude_chr))
   if (isTRUE(result$CMplot)) {
     cmd <- c(cmd, "--CMplot")
     cmd <- c(cmd, "--CMplot_bin_size", result$CMplot_bin_size)
@@ -647,6 +659,23 @@ cat("========================================================\n\n")
 # Get chromosome information
 chromosomes <- unique(data$CHROM)
 message("Chromosomes found: ", paste(chromosomes, collapse=", "))
+
+# Exclude specified chromosomes
+if (!is.null(opt$exclude_chr)) {
+  exclude_list <- trimws(strsplit(opt$exclude_chr, ",")[[1]])
+  exclude_list <- exclude_list[nzchar(exclude_list)]
+  excluded_found <- intersect(exclude_list, chromosomes)
+  excluded_missing <- setdiff(exclude_list, chromosomes)
+  if (length(excluded_missing) > 0) {
+    warning(paste("Some chromosomes in --exclude_chr were not found in the data:",
+                  paste(excluded_missing, collapse=", ")))
+  }
+  if (length(excluded_found) > 0) {
+    message("Excluding chromosomes: ", paste(excluded_found, collapse=", "))
+    data        <- data[!data$CHROM %in% excluded_found, ]
+    chromosomes <- chromosomes[!chromosomes %in% excluded_found]
+  }
+}
 
 # Determine chromosome lengths
 if (!is.null(opt$chrlength)) {
