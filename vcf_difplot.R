@@ -752,7 +752,7 @@ if (isTRUE(opt$CMplot)) {
   cmplot_chrom <- ifelse(!is.na(cmplot_chrom_num), cmplot_chrom_num, cmplot_chrom_raw)
 
   cmplot_data <- data.frame(
-    SNP        = paste(variant_data$CHROM, variant_data$POS, sep = "_"),
+    SNP        = paste(cmplot_chrom, variant_data$POS, sep = "_"),
     Chromosome = cmplot_chrom,
     Position   = variant_data$POS,
     stringsAsFactors = FALSE
@@ -764,7 +764,7 @@ if (isTRUE(opt$CMplot)) {
   # Determine output format from file extension
   output_ext <- tolower(tools::file_ext(opt$output))
   if (!output_ext %in% c("pdf", "png", "jpg", "jpeg")) {
-    warning(paste("Unsupported output format:", output_ext, ". Using pdf instead."))
+    warning(paste("Unsupported output format:", output_ext, ". Using PDF instead."))
     output_ext <- "pdf"
     opt$output <- paste0(tools::file_path_sans_ext(opt$output), ".pdf")
   }
