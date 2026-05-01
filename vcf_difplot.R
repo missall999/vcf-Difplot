@@ -736,7 +736,11 @@ if (isTRUE(opt$CMplot)) {
   # ---------------------------------------------------------------------------
   # CMplot density plot branch
   # ---------------------------------------------------------------------------
-  suppressPackageStartupMessages(library(CMplot))
+  suppressPackageStartupMessages({
+    if (!requireNamespace("CMplot", quietly = TRUE))
+      stop('CMplot package is required when --CMplot is used. Install it with: install.packages("CMplot")', call. = FALSE)
+    library(CMplot)
+  })
 
   # Build a data frame in CMplot format: SNP, Chromosome, Position
   cmplot_data <- data.frame(
@@ -766,7 +770,7 @@ if (isTRUE(opt$CMplot)) {
 
   old_wd <- getwd()
   tryCatch(setwd(output_dir), error = function(e)
-    stop(paste("Cannot change to output directory:", output_dir), call. = FALSE))
+    stop(paste("Cannot change to output directory:", output_dir, "-", e$message), call. = FALSE))
   on.exit(setwd(old_wd), add = TRUE)
 
   message("Saving CMplot density plot to directory: ", normalizePath(output_dir))
