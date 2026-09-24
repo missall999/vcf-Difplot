@@ -10,8 +10,10 @@ This tool reads a tab-delimited file converted from VCF format and creates visua
 
 - R (version 3.6 or higher)
 - R packages:
-  - `ggplot2`
+  - `ggplot2` (>= 3.4.0)
   - `optparse`
+  - `data.table`
+  - `R.utils` (optional, required only for reading gzipped input files)
 - GATK (for converting VCF to tab-delimited format)
 
 ## Installation
@@ -19,7 +21,9 @@ This tool reads a tab-delimited file converted from VCF format and creates visua
 Install required R packages:
 
 ```r
-install.packages(c("ggplot2", "optparse"))
+install.packages(c("ggplot2", "optparse", "data.table"))
+# Optional: for gzipped input support
+install.packages("R.utils")
 ```
 
 ## Workflow
@@ -62,142 +66,140 @@ Rscript vcf_difplot.R [options]
 
 **Baseline Sample:**
 - `-b, --basename NAME`: Baseline sample name
-- `-B, --basecol INT`: Baseline sample column position (1-based)
+- `-B, --basecol INT`: Baseline GT column index (1-based, among GT columns only)
 
 **Comparison Sample:**
 - `-c, --copname NAME`: Comparison sample name
-- `-C, --copcol INT`: Comparison sample column position (1-based)
+- `-C, --copcol INT`: Comparison GT column index (1-based, among GT columns only)
+
+> **Note:** The column index refers to the position among GT columns only, not all columns in the file. For example, if the file has columns `CHROM POS sample1.GT sample2.GT`, then `-B 1` selects `sample1.GT` and `-B 2` selects `sample2.GT`.
 
 ### Optional Arguments
 
-- `-o, --output FILE`: Output plot file (default: `variant_plot.pdf`)
-- `-l, --chrlength FILE`: Chromosome length file (CHROM LENGTH)
-  - If not provided, uses maximum variant position (warning will be issued)
-  - Separator is automatically detected (supports tab, comma, semicolon, or whitespace)
-- `-u, --unit NUM`: Chromosome length unit (default: 1e6 for Mb)
-- `-t, --threads INT`: Number of threads for parallel processing by chromosome (default: 1)
-  - Use `-t 12` to enable parallel processing with 12 threads for faster execution
-  - Recommended for large datasets with many positions
-- `--baseHetcheck`: Check if baseline sample is homozygous; ignore heterozygous positions
-  - Only positions where baseline is homozygous (e.g., A/A, G|G) will be included
-- `--copHetcheck`: Check if comparison sample is homozygous; ignore heterozygous positions
-  - Only positions where comparison is homozygous (e.g., A/A, G|G) will be included
-- `--output_table FILE`: Write the final variant positions used for plotting to a tab-delimited file (columns: CHROM, POS)
+- `-o, --output FILE`: Output plot file (default: `variant_plot.pdf`). Supports PDF, PNG, JPEG, SVG.
+- `-l, --chrlength FILE`: Chromosome length file (first two columns used: CHROM, LENGTH)
+  - Supports `.fai` format (samtools faidx output, 5 columns) — only the first two are read
+  - Separator is automatically detected (tab, comma, semicolon, or whitespace)
+  - If not provided, uses maximum observed position per chromosome (warning issued)
+- `-u, --unit NUM`: Position unit divisor (default: 1e6 for Mb; use 1e3 for kb, 1 for bp)
+- `--baseHetcheck`: Only include positions where baseline is homozygous
+- `--copHetcheck`: Only include positions where comparison is homozygous
+- `--output_table FILE`: Write variant positions (CHROM, POS) to a tab-delimited file, sorted by genomic coordinate
+- `-I, --interactive`: Interactive mode — prompts for each parameter with descriptions
 
 ### Visualization Customization
 
-- `--segmentColor COLOR`: Color for variant position segments (default: `red`)
-  - Accepts any valid R color name or hex code (e.g., "blue", "#FF5733")
-- `--segmentSize NUM`: Thickness of variant position segments (default: `0.5`)
+- `--segmentColor COLOR`: Color for variant segments (default: `red`)
+- `--segmentSize NUM`: Thickness of variant segments (default: `0.5`)
+- `--segmentAlpha NUM`: Transparency of variant segments, 0-1 (default: `0.6`)
 - `--chrBorderColor COLOR`: Color for chromosome borders (default: `black`)
-  - Accepts any valid R color name or hex code
 - `--chrBorderSize NUM`: Thickness of chromosome borders (default: `0.3`)
+
+All color parameters accept R color names (case-insensitive) or hex codes (e.g., `"#FF5733"`).
 
 ### Genotype Handling
 
 The script properly handles GATK VariantsToTable genotype formats:
 - Supports both `/` and `|` as separators (phased and unphased)
-- Treats `A/T` and `T|A` as equivalent (normalizes for comparison)
-- Automatically filters out positions with missing data (`./.`) or wildcards (`*/*`)
+- Treats `A/T` and `T|A` as equivalent (normalizes by sorting alleles)
+- Automatically filters out positions with missing data (`./.`), wildcards (`*/*`), or malformed genotypes
+- **Haploid support**: Single-allele genotypes (e.g., male chrX/chrY `A`) are expanded to homozygous diploid (`A/A`) for correct comparison
+- **Polyploid support**: Genotypes with 3+ alleles are sorted and compared as allele sets
 - Can optionally filter for homozygous positions only
-- **Smart chromosome sorting**: Chromosomes are sorted in natural numerical order (Chr1, Chr2, ..., Chr10, Chr11) instead of alphabetical order
+- **Smart chromosome sorting**: Natural genomic order (Chr1, Chr2, ..., Chr10, X, Y, MT)
+- **Y-axis orientation**: Chr1 at top (conventional genome browser layout)
 
 ## Example
 
-The following command shows all available parameters. Parameters marked with `# optional` can be omitted; the rest are required.
-
 ```bash
 Rscript vcf_difplot.R \
-  -i variants.table \          # required: input tab-delimited file
-  -b sample1 \                 # required: baseline sample name (or use -B for column index)
-  -c sample2 \                 # required: comparison sample name (or use -C for column index)
-  -o comparison.pdf \          # optional: output plot file (default: variant_plot.pdf)
-  -l chr_lengths.txt \         # optional: chromosome length file; auto-detected from data if omitted
-  -u 1000000 \                 # optional: position unit divisor, e.g. 1e6 = Mb (default: 1e6)
-  -t 4 \                       # optional: threads for parallel processing (default: 1)
-  --baseHetcheck \             # optional: skip heterozygous positions in baseline sample
-  --copHetcheck \              # optional: skip heterozygous positions in comparison sample
-  --segmentColor red \         # optional: color for variant segments (default: red)
-  --segmentSize 0.5 \          # optional: thickness of variant segments (default: 0.5)
-  --chrBorderColor black \     # optional: color for chromosome borders (default: black)
-  --chrBorderSize 0.3 \        # optional: thickness of chromosome borders (default: 0.3)
-  --output_table positions.tsv # optional: write final variant positions (CHROM + POS) to this file
+  -i variants.table \
+  -b sample1 \
+  -c sample2 \
+  -o comparison.pdf \
+  -l chr_lengths.txt \
+  -u 1000000 \
+  --baseHetcheck \
+  --copHetcheck \
+  --segmentColor red \
+  --segmentSize 0.5 \
+  --segmentAlpha 0.6 \
+  --chrBorderColor black \
+  --chrBorderSize 0.3 \
+  --output_table positions.tsv
 ```
-
-> **Note on sample selection:** For each sample (baseline and comparison) you must use either the
-> name flag (`-b`/`-c`) or the 1-based column-index flag (`-B`/`-C`). If both are given for the
-> same sample, the name takes precedence.
 
 ### Chromosome Length File Format
 
-The chromosome length file should have two columns (no header). The separator is automatically detected (tab, comma, semicolon, or whitespace):
+The first two columns are used (CHROM, LENGTH). Extra columns are ignored, so `.fai` files work directly:
 
 **Tab-delimited:**
 ```
 chr1	248956422
 chr2	242193529
 chr3	198295559
-...
+```
+
+**samtools .fai (5 columns — only first two used):**
+```
+chr1	248956422	112	80	81
+chr2	242193529	252092603	80	81
 ```
 
 **Comma-delimited:**
 ```
 chr1,248956422
 chr2,242193529
-chr3,198295559
 ```
 
-**Space-delimited:**
-```
-chr1 248956422
-chr2 242193529
-chr3 198295559
-```
-
-The script will automatically detect and use the appropriate separator.
+The script automatically detects the separator.
 
 ## Output
 
 The script generates a plot where:
-- Each chromosome is represented as a horizontal rectangle (light gray by default)
-- Variant positions (where genotypes differ) are shown as vertical lines (red by default)
+- Each chromosome is a horizontal rectangle (light gray), with chr1 at the top
+- Variant positions (where genotypes differ) are vertical lines (red by default)
 - The x-axis shows position (scaled by the specified unit)
-- The y-axis lists chromosomes
+- The y-axis lists chromosomes in genomic order
 
-Additionally, the script prints to the console:
-- Summary statistics (total positions, variant positions, non-variant positions)
-- **First 20 variant positions** (where baseline and comparison genotypes differ), showing:
-  - CHROM: Chromosome name
-  - POS: Position
-  - Baseline_GT: Genotype of baseline sample
-  - Comparison_GT: Genotype of comparison sample
-- Chromosome information and processing details
-- 
+Console output includes:
+- Summary statistics (total positions, variants, non-variants)
+- First 20 variant positions with genotypes
+- Chromosome length information
+- Warnings for data issues (positions beyond chromosome length, haploid/polyploid genotypes, etc.)
+
 ![image](example/output.png)
+
 ## Features
 
 - **Automatic Sample Detection**: Reads GT column names to identify available samples
-- **Flexible Sample Selection**: Specify samples by name or column position
-- **Chromosome Length Handling**: Supports custom length files or auto-detects from data
-- **Multiple Output Formats**: Supports PDF, PNG, and JPEG
-- **Robust Error Handling**: Validates input files, parameters, and data structure
-- **Informative Messages**: Provides detailed progress and summary information
+- **Flexible Sample Selection**: Specify samples by name or GT column index
+- **Chromosome Length Handling**: Supports custom length files (including .fai) or auto-detects from data
+- **Multiple Output Formats**: PDF, PNG, JPEG, SVG (via ggsave)
+- **Robust Error Handling**: Early validation of all parameters before expensive processing
+- **Memory Efficient**: Only reads needed columns from input file
+- **Fast Genotype Parsing**: Processes unique GT values only, then maps back (10-50x faster on large datasets)
+- **Interactive Mode**: Guided parameter setup with equivalent command output
 
 ## Error Handling
 
-The script includes comprehensive error checking for:
-- Missing or inaccessible input files
-- Missing required columns (CHROM, POS, GT)
-- Invalid sample names or column positions
-- Missing chromosome length data
-- Invalid file formats
+The script validates early and fails fast:
+- ggplot2 version check at startup
+- Output format validation before data processing
+- Color and numeric parameter validation
+- Input file existence and column structure
+- Sample name/index resolution with clear error messages
+- Same-sample detection (stops with error)
+- Chromosome length file validation (duplicates, non-numeric, header detection)
+- POS overflow detection (warns if variants exceed chromosome length)
 
 ## Notes
 
 - GT columns must be named in the format `sampleID.GT`
-- Missing genotypes are automatically excluded from comparison
-- Chromosomes are sorted numerically when possible, alphabetically otherwise
-- The plot height automatically adjusts based on the number of chromosomes
+- Missing and malformed genotypes are automatically excluded
+- Chromosomes are sorted in genomic order (numeric, then X, Y, MT)
+- Plot height auto-adjusts based on chromosome count
+- Gzipped input (.gz, .bgz) requires the `R.utils` package
 
 ## License
 
