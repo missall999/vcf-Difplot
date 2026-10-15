@@ -543,6 +543,13 @@ if (isTRUE(opt$cmplot)) {
       stringsAsFactors = FALSE
     )
 
+    # CMplot's density plot draws chromosome tracks top-to-bottom in the order
+    # they first appear in the data, but pastes chr.labels bottom-to-top without
+    # reversing (unlike its own default branch). Labels must therefore be the
+    # reverse of the variant-bearing chromosomes, and must match that count
+    # exactly -- the density path skips CMplot's length(chr.labels)==Nchr check.
+    cmplot_chr_labels <- rev(unique(cmplot_input$Chr))
+
     # Derive output file name: same directory, add _density suffix
     out_dir <- normalizePath(dirname(opt$output), mustWork = TRUE)
     out_base <- sub("\\.[^.]*$", "", basename(opt$output))
@@ -566,7 +573,7 @@ if (isTRUE(opt$cmplot)) {
       plot.type = "d",
       bin.size = opt$cmplot_bin_size,
       chr.den.col = cmplot_den_cols,
-      chr.labels = chr_info$CHROM,
+      chr.labels = cmplot_chr_labels,
       chr.pos.max = TRUE,
       main = cmplot_main,
       main.cex = 1.2,
