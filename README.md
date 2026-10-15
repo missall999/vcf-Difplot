@@ -109,7 +109,7 @@ Rscript vcf_difplot.R -i output.table -b sample1 -c sample2 -o variant_plot.pdf
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--output_table` | FILE | 无 | 将用于绘图的变异位点（CHROM, POS 两列）写入制表符文件，按基因组坐标排序 |
+| `--output_table` | FILE | 无 | 将用于绘图的变异位点写入制表符文件（CHROM, POS, `<baseline>.GT`, `<comparison>.GT` 四列），按基因组坐标排序。若同时指定 `--baseHetcheck` 与 `--copHetcheck`，基因型省略分隔符（`AGA`\|`AGA` → `AGA`） |
 
 ### CMplot SNP 密度图
 

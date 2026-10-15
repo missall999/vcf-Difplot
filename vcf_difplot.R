@@ -53,7 +53,7 @@ option_list <- list(
   make_option(c("--segmentAlpha"), type="numeric", default=0.6,
               help="Alpha transparency for variant segments (0-1) [default=%default]", metavar="NUM"),
   make_option(c("--output_table"), type="character", default=NULL,
-              help="Write variant positions (CHROM POS) to this file", metavar="FILE"),
+              help="Write variant positions with genotypes (CHROM POS <base>.GT <comp>.GT) to this file", metavar="FILE"),
   # CMplot SNP-density plot options
   make_option(c("--cmplot"), action="store_true", default=FALSE,
               help="Additionally generate a CMplot SNP-density plot (requires CMplot package)"),
@@ -489,13 +489,22 @@ if (nrow(data) > 0) {
 } else {
   plot_variants <- data.frame(CHROM = character(0), POS = numeric(0), POS_scaled = numeric(0),
                               chr_order = numeric(0), is_variant = logical(0), stringsAsFactors = FALSE)
+  plot_variants[[base_col]] <- character(0)
+  plot_variants[[comp_col]] <- character(0)
 }
 
 # Output table (genomic order)
 if (!is.null(opt$output_table)) {
   message("Writing table: ", opt$output_table)
-  fwrite(plot_variants[, c("CHROM", "POS")], opt$output_table, sep = "\t")
-  message("  ", nrow(plot_variants), " positions written")
+  out <- plot_variants[, c("CHROM", "POS", base_col, comp_col), drop = FALSE]
+  # Both hom filters on => every retained genotype is homozygous, so dropping the
+  # separator is lossless ("AGA|AGA" -> "AGA").
+  if (isTRUE(opt$baseHetcheck) && isTRUE(opt$copHetcheck)) {
+    out[[base_col]] <- sub("[/|].*", "", out[[base_col]])
+    out[[comp_col]] <- sub("[/|].*", "", out[[comp_col]])
+  }
+  fwrite(out, opt$output_table, sep = "\t")
+  message("  ", nrow(out), " positions written")
 }
 
 # --- Plot --------------------------------------------------------------------
