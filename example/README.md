@@ -1,227 +1,163 @@
-# Example Data
+# 示例输出：sampleA vs sampleB 差异位点分析
 
-This directory contains example data files for testing the vcf_difplot.R script.
+本目录是一套完整的实测输出，用来展示 `vcf_difplot.R` 在真实数据上的效果。
+样品名已做脱敏处理（`sampleA` / `sampleB` / `sampleC`）。
 
-## Files
+## 数据来源
 
-### example_data.table
+| 项 | 说明 |
+|---|---|
+| 参考样本 | `sampleA` 的 gVCF（848 MB） |
+| 联合分型结果 | `sampleA-sampleB-sampleC.{snp,indel}_clean.vcf.gz` |
+| 参考基因组 | 水稻 323 v7.0（`Osativa_323_v7.0.fa`） |
+| 测试文件 | `ALL.{snp,indel}.vcf.gz`（sampleB + sampleC） |
 
-A sample tab-delimited file that simulates the output from GATK VariantsToTable. This file contains:
+**说明**：`sampleA` 的 gVCF 全部记录为 `<NON_REF>`（无实际变异），不能直接与测试文件合并。
+因此使用 `sampleA + sampleB + sampleC` 三样本联合分型（GenotypeGVCFs）的成品，
+避免重复跑数小时的联合分型。
 
-- **CHROM**: Chromosome identifier (chr1-chr5)
-- **POS**: Position on the chromosome
-- **sample1.GT**: Genotype for sample1 (in GATK format: A/T, C|G, ./., */* etc.)
-- **sample2.GT**: Genotype for sample2 (in GATK format: A/T, C|G, ./., */* etc.)
+联合分型 VCF 的样本顺序：`sampleA, sampleB, sampleC`。
 
-The data includes 17 positions across 5 chromosomes with varying genotypes, including:
-- Homozygous genotypes (e.g., A/A, G|G)
-- Heterozygous genotypes (e.g., A/T, C|G)
-- Missing data (./.) and wildcards (*/*)
-- Both phased (|) and unphased (/) separators
-
-### chr_lengths.txt
-
-A tab-delimited file containing chromosome lengths for human chromosomes 1-5. Format:
-
-```
-chromosome_name<TAB>length_in_bp
-```
-
-These lengths are based on the GRCh38 human reference genome.
-
-### chr_lengths_comma.txt
-
-The same chromosome length data but comma-delimited, to demonstrate automatic separator detection:
-
-```
-chromosome_name,length_in_bp
-```
-
-## Running Examples
-
-### Example 1: Basic Plot Using Sample Names
+## 处理流程
 
 ```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -b sample1 \
-    -c sample2 \
-    -o basic_plot.pdf
-```
-
-This will:
-- Read the example data file
-- Compare sample1 (baseline) vs sample2 (comparison)
-- Generate a PDF plot showing variant positions
-- Use auto-detected chromosome lengths (with warning)
-
-### Example 2: Plot with Chromosome Length File
-
-```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -b sample1 \
-    -c sample2 \
-    -l chr_lengths.txt \
-    -o plot_with_lengths.pdf
-```
-
-This will:
-- Use the provided chromosome length file
-- Generate more accurate visualization with proper chromosome scales
-
-### Example 3: Using Column Positions
-
-```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -B 1 \
-    -C 2 \
-    -l chr_lengths.txt \
-    -o plot_by_column.pdf
-```
-
-This will:
-- Select baseline sample using column position (1st GT column = sample1)
-- Select comparison sample using column position (2nd GT column = sample2)
-
-### Example 4: PNG Output
-
-```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -b sample1 \
-    -c sample2 \
-    -l chr_lengths.txt \
-    -o plot_output.png
-```
-
-This generates a PNG image instead of PDF.
-
-### Example 5: Custom Unit (kb instead of Mb)
-
-```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -b sample1 \
-    -c sample2 \
-    -l chr_lengths.txt \
-    -u 1000 \
-    -o plot_kb_units.pdf
-```
-
-This displays positions in kilobases (kb) instead of megabases (Mb).
-
-### Example 6: Filter for Homozygous Baseline
-
-```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -b sample1 \
-    -c sample2 \
-    -l chr_lengths.txt \
-    --baseHetcheck \
-    -o plot_homozygous_base.pdf
-```
-
-This includes only positions where sample1 (baseline) is homozygous.
-
-### Example 7: Filter for Both Homozygous
-
-```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -b sample1 \
-    -c sample2 \
-    -l chr_lengths.txt \
-    --baseHetcheck \
-    --copHetcheck \
-    -o plot_both_homozygous.pdf
-```
-
-This includes only positions where both samples are homozygous.
-
-### Example 8: Custom Colors and Line Thickness
-
-```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -b sample1 \
-    -c sample2 \
-    -l chr_lengths.txt \
-    --segmentColor blue \
-    --segmentSize 1.0 \
-    --chrBorderColor darkgray \
-    --chrBorderSize 0.5 \
-    -o plot_custom_style.pdf
-```
-
-This demonstrates custom visualization with blue variant segments and dark gray borders.
-
-### Example 9: Using Comma-Delimited Chromosome Length File
-
-```bash
-Rscript ../vcf_difplot.R \
-    -i example_data.table \
-    -b sample1 \
-    -c sample2 \
-    -l chr_lengths_comma.txt \
-    -o plot_with_comma_sep.pdf
-```
-
-This demonstrates automatic separator detection using the comma-delimited chromosome length file.
-
-## Expected Output
-
-The generated plot will show:
-- 5 horizontal gray bars (one for each chromosome)
-- Red vertical lines indicating positions where sample1 and sample2 have different genotypes
-- X-axis showing position (in Mb by default)
-- Y-axis showing chromosome names
-
-The console output will display:
-- Summary statistics (total positions, variant/non-variant counts)
-- **Table of first 20 variant positions** (where baseline and comparison genotypes differ), showing:
-  - CHROM: Chromosome name
-  - POS: Position on chromosome
-  - Baseline_GT: Genotype of baseline sample
-  - Comparison_GT: Genotype of comparison sample
-- Processing information and warnings
-
-For the example data, you should see:
-
-**Without filters (basic run):**
-- Total positions: 15 (after removing 2 positions with ./. or */*)
-- Variant positions vary based on genotype differences
-- Positions with ./. or */* in either column are automatically excluded
-
-**With --baseHetcheck:**
-- Only positions where sample1 is homozygous (A/A, G/G, T|T, etc.)
-- Excludes heterozygous positions (A/T, C/G, etc.)
-
-**With both --baseHetcheck and --copHetcheck:**
-- Only positions where both samples are homozygous
-- Smallest subset of positions
-
-Note: The script normalizes genotypes, so A/T and T|A are treated as equivalent.
-
-## Creating Your Own Test Data
-
-To create your own test data from a real VCF file:
-
-```bash
+# 1. GATK 导出制表符格式（3 样本）
 gatk VariantsToTable \
-   -V your_file.vcf \
-   -F CHROM -F POS -GF GT \
-   -O your_data.table
+  -R Osativa_323_v7.0.fa \
+  -V sampleA-sampleB-sampleC.indel_clean.vcf.gz \
+  -F CHROM -F POS -GF GT \
+  -O indel.table
+
+# 2. 绘图：sampleA 为基准，sampleB 为比较，双端纯合检测
+Rscript vcf_difplot.R \
+  -i indel.table \
+  -b sampleA -c sampleB \
+  -o indel_sampleA_vs_sampleB_homo.pdf \
+  --baseHetcheck --copHetcheck \
+  --preset nature \
+  --density \
+  --output_table indel.tab \
+  --table_min_len_diff 1
+
+# SNP 同理（不加 --table_min_len_diff，因为 SNP 的 LEN_DIFF 恒为 0）
 ```
 
-Then run the plotting script on your data:
+## 结果
+
+### SNP
+
+| 指标 | 数值 |
+|---|---|
+| 输入记录 | 3,924,314 |
+| 去除缺失/畸形基因型 | 3,527,734 |
+| 双端纯合过滤后 | 2,768,453 |
+| **差异位点** | **531,983** |
+| 非差异位点 | 2,236,470 |
+| 涉及染色体 | 14（Chr1–12, ChrUn, ChrSy） |
+| 运行耗时 | 7.01 s / 1.25 GB |
+
+### INDEL
+
+| 指标 | 数值 |
+|---|---|
+| 输入记录 | 655,910 |
+| **差异位点** | **112,704** |
+| 涉及染色体 | 14 |
+
+### INDEL 差异位点按染色体分布
+
+| 染色体 | 差异 indel 数 |
+|---|---|
+| Chr1 | 10,960 |
+| Chr2 | 11,633 |
+| Chr3 | **27,008** |
+| Chr4 | 10,303 |
+| Chr5 | 11,357 |
+| Chr6 | 3,874 |
+| Chr7 | 6,897 |
+| Chr8 | 9,628 |
+| Chr9 | 2,508 |
+| Chr10 | **14,819** |
+| Chr11 | 1,571 |
+| Chr12 | 1,890 |
+| ChrSy | 87 |
+| ChrUn | 169 |
+| **合计** | **112,704** |
+
+Chr3（27,008）和 Chr10（14,819）差异最集中。
+
+## 输出文件
+
+| 文件 | 说明 |
+|---|---|
+| `snp_diff_positions.tsv` | SNP 差异位点 + 基因型，531,983 行，5 列（SNP 的 LEN_DIFF 恒为 0，故未过滤） |
+| `indel_sampleA_vs_sampleB_homo.pdf` | indel 差异图 |
+| `indel_sampleA_vs_sampleB_homo_density.pdf` | indel 密度图 |
+| `snp_sampleA_vs_sampleB_homo.pdf` | SNP 差异图 |
+| `snp_sampleA_vs_sampleB_homo_density.pdf` | SNP 密度图 |
+| `*.png` | 上述 PDF 的 PNG 预览 |
+
+### snp_diff_positions.tsv 格式
+
+```tsv
+CHROM	POS	sampleA.GT	sampleB.GT	LEN_DIFF
+Chr1	247146	A	C	0
+Chr1	272773	T	C	0
+Chr1	286819	C	T	0
+Chr1	286822	A	G	0
+Chr1	286825	G	A	0
+```
+
+| 列 | 说明 |
+|---|---|
+| `CHROM` | 染色体 |
+| `POS` | 位置（整数，非科学计数法） |
+| `sampleA.GT` | 基准样本基因型（纯合时只显示单等位基因） |
+| `sampleB.GT` | 比较样本基因型（同上） |
+| `LEN_DIFF` | 两样本等位基因长度的绝对差值（bp） |
+
+**基因型格式**：纯合基因型折叠为单等位基因——`G/G` → `G`，`GTTTTT|GTTTTT` → `GTTTTT`。
+杂合/多等位基因型（未启用纯合过滤时）保留完整形式如 `A/ATTT`。
+
+**LEN_DIFF**：`abs(nchar(sampleA 等位基因) - nchar(sampleB 等位基因))`。
+本文件为 SNP 位点，两条等位基因等长，因此 `LEN_DIFF` 恒为 0。
+
+indel 侧使用 `--table_min_len_diff 1`，**已剔除 853 条等长替换**（LEN_DIFF = 0），
+最终 111,851 条，LEN_DIFF 范围 1–272 bp（该明细表未随示例保留）。
+
+**LEN_DIFF 分布**（过滤后 111,851 条）：
+
+| LEN_DIFF | 数量 | | LEN_DIFF | 数量 |
+|---|---|---|---|---|
+| 1 | 48,686 | | 5 | 3,276 |
+| 2 | 18,489 | | 6 | 3,334 |
+| 3 | 9,415 | | 7 | 2,075 |
+| 4 | 6,130 | | 8 | 2,185 |
+
+绝大多数（48,686 / 44%）是 1bp 差异。最大差异 272 bp。
+
+## 数据校验
+
+- `snp_diff_positions.tsv`：531,983 行，全部唯一，已排序 ✅
+- SNP 与 INDEL 位点重叠数：**0**（两类变异互斥，符合预期）✅
+- 基因型折叠：纯合基因型已折叠为单等位基因，无 `/` 或 `|` 重复 ✅
+- LEN_DIFF 抽样核对：`G` vs `GTTTTT` = 5、`GA` vs `G` = 1、`A` vs `AGAC` = 3、`GAT` vs `G` = 2、58bp vs 20bp = 38，全部正确 ✅
+- 纯合性：抽样 20 万条基因型，homo=200000 / het=0，符合双端纯合过滤 ✅
+
+## 复现命令
 
 ```bash
-Rscript ../vcf_difplot.R \
-    -i your_data.table \
-    -b your_baseline_sample \
-    -c your_comparison_sample \
-    -o your_plot.pdf
+# 在 ms 上
+cd ~/vcfdiff_run
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate Gatk
+
+gatk VariantsToTable -R /home/user/WorkDir/TQassemble/Osativa_323_v7.0.fa \
+  -V ~/data/TMP_VCF/sampleA-sampleB-sampleC.indel_clean.vcf.gz \
+  -F CHROM -F POS -GF GT -O indel.table
+
+Rscript vcf_difplot.R -i indel.table -b sampleA -c sampleB \
+  -o indel_sampleA_vs_sampleB_homo.pdf \
+  --baseHetcheck --copHetcheck --preset nature --density \
+  --output_table indel.tab --table_min_len_diff 1
+# 说明：indel.tab 是 --output_table 生成的位点明细表，本示例目录未保留该文件。
 ```

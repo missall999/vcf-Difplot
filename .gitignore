@@ -1,0 +1,10 @@
+# 本地测试数据（体积大，不上传）
+test_data/
+
+# 临时与调试文件
+.work/
+*.bak
+*.bak_*
+~$*
+.Rhistory
+.RData

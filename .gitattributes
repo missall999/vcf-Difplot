@@ -1,0 +1,9 @@
+# 数据文件保持 LF，避免在 Windows 检出时被转成 CRLF
+*.tsv   text eol=lf
+*.table text eol=lf
+*.txt   text eol=lf
+
+# 二进制资源
+*.pdf   binary
+*.png   binary
+*.jpg   binary
